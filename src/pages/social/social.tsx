@@ -15,10 +15,38 @@ type Section = SectionFollowVN | SectionFollowGL | SectionSimple;
 
 type Platform = {
   name: string;
-  color: string;
-  desc?: string;
   sections: Section[];
+  desc?: string;
 };
+
+// ========= Instagram Theme =========
+const IG_GRADIENT = "from-pink-600 via-fuchsia-600 to-purple-700";
+const IG_CARD_BG  = "bg-white/10 ring-1 ring-white/10 backdrop-blur-sm";
+
+// ========= Helpers (bảng giá ×2.5) =========
+function formatVnd(n: number) {
+  return n.toLocaleString("vi-VN").replace(/,/g, ".") + "đ";
+}
+/** Nhân chuỗi giá (kể cả khoảng giá a – b). Nếu không có số (VD: "Thương Lượng") thì giữ nguyên. */
+function multiplyPriceString(input: string, factor = 2.5): string {
+  if (!input) return input;
+
+  const sep = input.includes("–") ? "–" : (input.includes("-") ? "-" : null);
+  const clean = (s: string) => {
+    const n = parseInt(s.replace(/[^\d]/g, ""), 10);
+    return Number.isFinite(n) ? n : 0;
+  };
+
+  if (!sep) {
+    const num = clean(input);
+    return num ? formatVnd(Math.round(num * factor)) : input; // không có số -> giữ nguyên
+  }
+
+  const [a, b] = input.split(sep);
+  const x = clean(a), y = clean(b);
+  if (!x || !y) return input; // một trong hai không có số -> giữ nguyên
+  return `${formatVnd(Math.round(x * factor))} ${sep} ${formatVnd(Math.round(y * factor))}`;
+}
 
 export default function Social() {
   const [loading, setLoading] = useState(false);
@@ -27,25 +55,6 @@ export default function Social() {
   const [showQR, setShowQR] = useState(false);
   const [currentOrder, setCurrentOrder] = useState<{ id: string; amount: number } | null>(null);
 
-
-  const InlineActivityDemo = () => {
-    const demo = [
-      "abc vừa follow bạn",
-      "minhthu123 đã follow bạn",
-      "ngocanh_98 đã follow bạn",
-      "trungcute vừa follow bạn",
-      "linh.lee đã follow bạn",
-    ];
-    return (
-      <div className="mt-3 rounded-2xl bg-white/70 dark:bg-slate-800/60 shadow-sm ring-1 ring-black/5 dark:ring-white/10 p-3">
-        {demo.map((t, i) => (
-          <p key={i} className="text-sm text-slate-700 dark:text-slate-200 border-b last:border-0 border-black/5 dark:border-white/10 py-1">
-            {t}
-          </p>
-        ))}
-      </div>
-    );
-  };
   // Bấm Order -> hỏi link
   const handleBuy = (label: string, price: string) => {
     setPendingItem({ label, price });
@@ -74,8 +83,6 @@ export default function Social() {
         }),
       });
 
-      
-
       const orderData = await orderRes.json();
       if (!orderRes.ok) throw new Error(orderData?.error || "Tạo đơn thất bại");
 
@@ -91,12 +98,11 @@ export default function Social() {
   };
 
   // ===========================
-  // 🟣 DATA
+  // 🟣 DATA — 3 bảng đầu (IG / TikTok / FB)
   // ===========================
   const instagram: Platform = {
     name: "Instagram 📸",
-    color: "from-pink-500 to-purple-600",
-    desc: "Tách Follow / Likes / Views — bảo hành linh hoạt 7 ngày hoặc 1 tháng.",
+    desc: "Follow / Likes / Views — BH 7 ngày hoặc 1 tháng.",
     sections: [
       {
         title: "Follow 🇻🇳",
@@ -149,8 +155,7 @@ export default function Social() {
 
   const tiktok: Platform = {
     name: "TikTok 🎵",
-    color: "from-blue-500 to-cyan-500",
-    desc: "Follow / Likes / Views tách ô riêng — dễ đọc, dễ chọn.",
+    desc: "Follow / Likes / Views — tách rõ, dễ chọn.",
     sections: [
       {
         title: "Follow",
@@ -187,7 +192,6 @@ export default function Social() {
 
   const facebook: Platform = {
     name: "Facebook 📘",
-    color: "from-indigo-500 to-blue-600",
     sections: [
       {
         title: "Follow",
@@ -228,7 +232,7 @@ export default function Social() {
   const platforms: Platform[] = [instagram, tiktok, facebook];
 
   // ===========================
-  // 🟣 COMPONENTS
+  // 🟣 3 bảng IG theme (Card)
   // ===========================
   const ActionBtn: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement>> = (props) => (
     <button
@@ -241,8 +245,8 @@ export default function Social() {
     </button>
   );
 
-  const Card = ({ pf }: { pf: Platform }) => (
-    <section className={`rounded-3xl overflow-hidden shadow-md border border-black/5 dark:border-white/10 bg-gradient-to-r ${pf.color} text-white`}>
+  const Card: React.FC<{ pf: Platform }> = ({ pf }) => (
+    <section className={`rounded-3xl overflow-hidden shadow-xl border border-white/15 bg-gradient-to-r ${IG_GRADIENT} text-white`}>
       <div className="p-4 sm:p-6 md:p-8">
         <div className="text-center mb-5">
           <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">{pf.name}</h2>
@@ -251,7 +255,7 @@ export default function Social() {
 
         <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2">
           {pf.sections.map((sec, i) => (
-            <article key={sec.title + i} className="rounded-2xl bg-white/10 ring-1 ring-white/10 backdrop-blur-sm overflow-hidden">
+            <article key={sec.title + i} className={`rounded-2xl ${IG_CARD_BG} overflow-hidden`}>
               <div className="px-3 sm:px-4 py-2.5 border-b border-white/15">
                 <h3 className="font-semibold text-sm sm:text-base">{sec.title}</h3>
               </div>
@@ -272,23 +276,17 @@ export default function Social() {
                       {sec.items.map((r) => (
                         <tr key={r.label} className="border-b last:border-0 border-white/15">
                           <td className="py-2 px-2 align-middle">{r.label}</td>
-
-                          {/* Giá + Order cùng dòng, không wrap */}
+                          {/* Giá + Order */}
                           <td className="py-2 px-2 text-right align-middle">
                             <div className="flex items-center justify-end gap-2 flex-nowrap">
                               <span className="whitespace-nowrap">{r.g7 ?? "–"}</span>
-                              {r.g7 && (
-                                <ActionBtn onClick={() => handleBuy(r.label + " BH7", r.g7!)} disabled={loading} />
-                              )}
+                              {r.g7 && <ActionBtn onClick={() => handleBuy(r.label + " BH7", r.g7!)} disabled={loading} />}
                             </div>
                           </td>
-
                           <td className="py-2 px-2 text-right align-middle">
                             <div className="flex items-center justify-end gap-2 flex-nowrap">
                               <span className="whitespace-nowrap">{r.g30 ?? "–"}</span>
-                              {r.g30 && (
-                                <ActionBtn onClick={() => handleBuy(r.label + " BH30", r.g30!)} disabled={loading} />
-                              )}
+                              {r.g30 && <ActionBtn onClick={() => handleBuy(r.label + " BH30", r.g30!)} disabled={loading} />}
                             </div>
                           </td>
                         </tr>
@@ -334,9 +332,7 @@ export default function Social() {
                           <td className="py-2 px-3 text-right align-middle">
                             <div className="flex items-center justify-end gap-2 flex-nowrap">
                               <span className="whitespace-nowrap">{r.value ?? "–"}</span>
-                              {r.value && (
-                                <ActionBtn onClick={() => handleBuy(r.label, r.value!)} disabled={loading} />
-                              )}
+                              {r.value && <ActionBtn onClick={() => handleBuy(r.label, r.value!)} disabled={loading} />}
                             </div>
                           </td>
                         </tr>
@@ -348,29 +344,134 @@ export default function Social() {
             </article>
           ))}
         </div>
-
-        <a
-          href="https://zalo.me/0909172556"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-5 inline-block w-full rounded-xl bg-white text-slate-900 text-center font-semibold py-2.5 hover:bg-gray-100 transition"
-        >
-          Liên hệ đặt dịch vụ 📩
-        </a>
       </div>
     </section>
   );
 
   // ===========================
-  // 🟣 PAGE
+  // 🟣 3 bảng sau (Dame / Unlock / Tích Xanh) – GIÁ HIỂN THỊ ĐÃ ×2.5
   // ===========================
+  type DuoRow = {
+    lLabel: string; lPrice: string;
+    rLabel?: string; rPrice?: string;
+  };
+  type DuoBoard = { title: string; rows: DuoRow[] };
+
+  // factor nhân giá
+  const CODE_FACTOR = 2.5;
+  const mult = (s: string) => multiplyPriceString(s, CODE_FACTOR);
+
+  // ---- RAW (giá gốc) ----
+  const rawBoardDameAccount: DuoBoard = {
+    title: "DAME ACCOUNT",
+    rows: [
+      { lLabel: "Dame Tài Khoản Facebook TCN Thường", lPrice: "650.000đ", rLabel: "Dame Tài Khoản Facebook Chuyên Nghiệp", rPrice: "1.500.000đ" },
+      { lLabel: "Dame Tài Khoản Facebook Locked", lPrice: "1.500.000đ", rLabel: "Dame Tài Khoản Facebook Không AVT", rPrice: "1.300.000đ" },
+      { lLabel: "Dame Fanpage Facebook", lPrice: "3.000.000đ – 10.000.000đ", rLabel: "Dame Group Facebook", rPrice: "3.000.000đ – 10.000.000đ" },
+      { lLabel: "Dame Tài Khoản TikTok", lPrice: "6.000.000đ – 30.000.000đ", rLabel: "Dame Video TikTok", rPrice: "3.000.000đ – 6.000.000đ" },
+      { lLabel: "Dame Tài Khoản Instagram", lPrice: "1.500.000đ – 4.000.000đ", rLabel: "Dame Tài Khoản Youtube", rPrice: "6.000.000đ – 30.000.000đ" },
+      { lLabel: "Dame Video Youtube", lPrice: "2.000.000đ – 5.000.000đ", rLabel: "Dame Tài Khoản Threads", rPrice: "2.500.000đ – 8.000.000đ" },
+    ],
+  };
+  const rawBoardUnlock: DuoBoard = {
+    title: "UNLOCK & KHÁNG NGHỊ",
+    rows: [
+      { lLabel: "Mở Khóa Facebook 956 Chính Chủ", lPrice: "650.000đ", rLabel: "Mở Khóa Facebook 956 Không Chính Chủ", rPrice: "2.500.000đ" },
+      { lLabel: "Mở Khóa Facebook 282 Lần Đầu (Có LK Mail)", lPrice: "650.000đ", rLabel: "Mở Khóa Facebook 282 Lần Đầu (Ko Mail)", rPrice: "650.000đ" },
+      { lLabel: "Mở Khóa Facebook 282 Lần 2 Trở Lên", lPrice: "2.500.000đ", rLabel: "Vượt Mã 2 Yếu Tố Chính Chủ (2FA)", rPrice: "650.000đ" },
+      { lLabel: "Vượt Mã 2 Yếu Tố Ko Chính Chủ (2FA)", lPrice: "1.900.000đ", rLabel: "Mở Khóa FAQ Vô Hiệu Hóa", rPrice: "7.000.000đ – 15.000.000đ" },
+      { lLabel: "Kháng Vi Phạm Facebook", lPrice: "1.000.000đ – 4.000.000đ", rLabel: "Lấy Lại Facebook Bị Hack", rPrice: "850.000đ" },
+      { lLabel: "Verify Bảo Vệ Tài Khoản Facebook", lPrice: "2.000.000đ – 7.000.000đ", rLabel: "Mở Khóa TikTok Cấm Vĩnh Viễn", rPrice: "3.000.000đ – 9.000.000đ" },
+      { lLabel: "Mở Khóa TikTok Die Bản Quyền", lPrice: "40.000.000đ – 90.000.000đ", rLabel: "Mở Khóa TikTok Die 13T", rPrice: "2.000.000đ – 5.000.000đ" },
+      { lLabel: "Khiếu Nại Video TikTok", lPrice: "2.000.000đ – 4.000.000đ", rLabel: "Khiếu Nại Live TikTok", rPrice: "2.000.000đ – 4.000.000đ" },
+      { lLabel: "Bảo Kê Tài Khoản TikTok", lPrice: "Thương Lượng", rLabel: "Mở Khóa Tài Khoản Instagram", rPrice: "2.000.000đ – 8.500.000đ" },
+      { lLabel: "Kháng Nghị Video Youtube", lPrice: "3.000.000đ – 5.000.000đ", rLabel: "Kháng Nghị Bài viết Instagram", rPrice: "900.000đ – 3.000.000đ" },
+    ],
+  };
+  const rawBoardTick: DuoBoard = {
+    title: "DỊCH VỤ TÍCH XANH",
+    rows: [
+      { lLabel: "Lên Tick Xanh Profile Facebook KBH", lPrice: "999.000đ", rLabel: "Lên Tick Xanh Profile Facebook BH", rPrice: "1.850.000đ" },
+      { lLabel: "Lên Tick Xanh Profile Facebook Chính Chủ KBH", lPrice: "2.600.000đ", rLabel: "Lên Tick Xanh Profile Facebook Chính Chủ BH", rPrice: "5.500.000đ" },
+      { lLabel: "Lên Tick Xanh Profile Instagram KBH", lPrice: "1.300.000đ", rLabel: "Lên Tick Xanh Profile Instagram BH", rPrice: "2.850.000đ" },
+      { lLabel: "Lên Tick Xanh Profile Instagram Chính Chủ KBH", lPrice: "3.600.000đ", rLabel: "Lên Tick Xanh Profile Instagram Chính Chủ BH", rPrice: "6.500.000đ" },
+    ],
+  };
+
+  // ---- GIÁ CODE (đã nhân 2.5×) ----
+  const boardDameAccount: DuoBoard = {
+    title: rawBoardDameAccount.title,
+    rows: rawBoardDameAccount.rows.map(r => ({
+      ...r,
+      lPrice: mult(r.lPrice),
+      rPrice: r.rPrice ? mult(r.rPrice) : undefined,
+    })),
+  };
+  const boardUnlock: DuoBoard = {
+    title: rawBoardUnlock.title,
+    rows: rawBoardUnlock.rows.map(r => ({
+      ...r,
+      lPrice: mult(r.lPrice),
+      rPrice: r.rPrice ? mult(r.rPrice) : undefined,
+    })),
+  };
+  const boardTick: DuoBoard = {
+    title: rawBoardTick.title,
+    rows: rawBoardTick.rows.map(r => ({
+      ...r,
+      lPrice: mult(r.lPrice),
+      rPrice: r.rPrice ? mult(r.rPrice) : undefined,
+    })),
+  };
+
+  const DuoBoardSection: React.FC<DuoBoard> = ({ title, rows }) => {
+    return (
+      <section className={`rounded-3xl overflow-hidden border border-white/15 shadow-xl bg-gradient-to-br ${IG_GRADIENT} text-white`}>
+        <div className="p-4 sm:p-6 md:p-8">
+          <h2 className="text-center text-2xl sm:text-3xl font-extrabold tracking-wide text-fuchsia-200 drop-shadow mb-4">
+            {title}
+          </h2>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
+            {rows.map((r, idx) => (
+              <React.Fragment key={idx}>
+                {/* Left item */}
+                <div className="py-3 border-b border-white/20">
+                  <div className="flex items-baseline justify-between gap-4">
+                    <p className="font-medium text-[15px] sm:text-base">{r.lLabel}</p>
+                    {/* Giá đã nhân 2.5× */}
+                    <p className="font-extrabold tabular-nums text-right whitespace-nowrap">{r.lPrice}</p>
+                  </div>
+                </div>
+
+                {/* Right item */}
+                <div className="py-3 border-b border-white/20 md:pl-8">
+                  {r.rLabel ? (
+                    <div className="flex items-baseline justify-between gap-4">
+                      <p className="font-medium text-[15px] sm:text-base">{r.rLabel}</p>
+                      <p className="font-extrabold tabular-nums text-right whitespace-nowrap">{r.rPrice ?? "—"}</p>
+                    </div>
+                  ) : (
+                    <div className="opacity-70 text-sm">—</div>
+                  )}
+                </div>
+              </React.Fragment>
+            ))}
+          </div>
+        </div>
+      </section>
+    );
+  };
+
+  // ============== RENDER ==============
   return (
     <>
       <Head>
-        <title>LameaLux — Dịch vụ Follow & Tương tác</title>
+        <title>LameaLux — Dịch vụ Follow & Bảng giá</title>
       </Head>
 
       <div className="min-h-screen bg-gradient-to-br from-[#E4ECFF] via-[#F6F4FF] to-[#F9FBFF] dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+        {/* Header */}
         <header className="sticky top-0 z-30 backdrop-blur bg-white/60 dark:bg-slate-900/60 border-b border-black/5 dark:border-white/10">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -392,6 +493,7 @@ export default function Social() {
             Tự tin gần 10 năm trong lĩnh vực tăng tương tác mạng xã hội <br />
             Zalo/Call/Sms: 0909 172 556
           </p>
+
           <div className="mt-4 flex items-center justify-center gap-2">
             <Link
               href="/social/demo"
@@ -399,14 +501,20 @@ export default function Social() {
             >
               Demo hoạt động follow →
             </Link>
-          s
           </div>
 
-
-          <div className="mt-8 sm:mt-10 flex flex-col gap-8 sm:gap-10">
+          {/* ===== 3 bảng IG/TikTok/FB — nằm ĐẦU trang, theme IG ===== */}
+          <div className="mt-10 flex flex-col gap-8 sm:gap-10">
             {platforms.map((pf) => (
               <Card key={pf.name} pf={pf} />
             ))}
+          </div>
+
+          {/* ===== 3 bảng sau (Dame / Unlock / Tích Xanh) — giá đã ×2.5 ===== */}
+          <div className="mt-10 space-y-8">
+            <DuoBoardSection {...boardDameAccount} />
+            <DuoBoardSection {...boardUnlock} />
+            <DuoBoardSection {...boardTick} />
           </div>
 
           <footer className="py-10 text-center text-xs text-gray-600 dark:text-slate-300">
