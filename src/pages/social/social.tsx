@@ -5,6 +5,7 @@ import { useState } from "react";
 import LinkModal from "@/components/LinkModal";
 import BankQRModal from "@/components/BankQRModal";
 import React from "react";
+import QuickAdviceButton from "@/components/QuickAdviceButton";
 
 type Row = { label: string; value?: string; g7?: string; g30?: string };
 type SectionCommon = { title: string };
@@ -14,6 +15,7 @@ type SectionSimple   = SectionCommon & { kind: "simple"; items: Row[] };
 type Section = SectionFollowVN | SectionFollowGL | SectionSimple;
 
 type Platform = {
+  key: "instagram" | "tiktok" | "facebook";
   name: string;
   sections: Section[];
   desc?: string;
@@ -48,16 +50,93 @@ function multiplyPriceString(input: string, factor = 2.5): string {
   return `${formatVnd(Math.round(x * factor))} ${sep} ${formatVnd(Math.round(y * factor))}`;
 }
 
+// ========= Link hints =========
+type NeedType = "follow" | "like" | "view" | "comment";
+
+function getLinkHint(platform: Platform["key"], need: NeedType) {
+  switch (platform) {
+    case "instagram":
+      if (need === "follow") {
+        return {
+          placeholder: "https://instagram.com/USERNAME",
+          helper: "Ví dụ: https://instagram.com/kimlam • Chỉ cần link profile IG.",
+        };
+      }
+      if (need === "comment") {
+        return {
+          placeholder: "https://www.instagram.com/p/POST_ID/",
+          helper: "Bài viết IG: /p/POST_ID • Reel: /reel/REEL_ID • Story: dán link story nếu có.",
+        };
+      }
+      // like / view
+      return {
+        placeholder: "https://www.instagram.com/p/POST_ID/",
+        helper: "Bài viết IG: /p/POST_ID • Reel: /reel/REEL_ID",
+      };
+    case "facebook":
+      if (need === "follow") {
+        return {
+          placeholder: "https://facebook.com/USERNAME_OR_ID",
+          helper: "Ví dụ: https://facebook.com/kim.lam.123 hoặc https://facebook.com/1000123456789",
+        };
+      }
+      if (need === "comment") {
+        return {
+          placeholder: "https://www.facebook.com/USER/posts/POST_ID",
+          helper: "Bài viết: /posts/POST_ID • Reel: https://www.facebook.com/reel/REEL_ID",
+        };
+      }
+      // like / view
+      return {
+        placeholder: "https://www.facebook.com/USER/posts/POST_ID",
+        helper: "Bài viết: /posts/POST_ID • Reel: https://www.facebook.com/reel/REEL_ID",
+      };
+    case "tiktok":
+      if (need === "follow") {
+        return {
+          placeholder: "https://www.tiktok.com/@USERNAME",
+          helper: "Ví dụ: https://www.tiktok.com/@kimlam",
+        };
+      }
+      // like / view / comment
+      return {
+        placeholder: "https://www.tiktok.com/@USERNAME/video/VIDEO_ID",
+        helper: "Ví dụ: https://www.tiktok.com/@kimlam/video/7423456789012345678",
+      };
+  }
+}
+
+// Suy luận need theo section + label
+function inferNeedType(sec: Section, label: string): NeedType {
+  if (sec.kind === "follow_vn" || sec.kind === "follow_global") return "follow";
+  const lower = label.toLowerCase();
+  if (lower.includes("comment")) return "comment";
+  if (lower.includes("view")) return "view";
+  return "like";
+}
+
 export default function Social() {
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
-  const [pendingItem, setPendingItem] = useState<{ label: string; price: string } | null>(null);
+  const [pendingItem, setPendingItem] = useState<{
+    label: string;
+    price: string;
+    placeholder?: string;
+    helper?: string;
+  } | null>(null);
   const [showQR, setShowQR] = useState(false);
   const [currentOrder, setCurrentOrder] = useState<{ id: string; amount: number } | null>(null);
 
-  // Bấm Order -> hỏi link
-  const handleBuy = (label: string, price: string) => {
-    setPendingItem({ label, price });
+  // Bấm Order -> hỏi link (có hint theo nền tảng + loại)
+  const handleBuy = (
+    platform: Platform["key"],
+    sec: Section,
+    label: string,
+    price: string
+  ) => {
+    const need = inferNeedType(sec, label);
+    const { placeholder, helper } = getLinkHint(platform, need);
+    setPendingItem({ label, price, placeholder, helper });
     setShowModal(true);
   };
 
@@ -101,6 +180,7 @@ export default function Social() {
   // 🟣 DATA — 3 bảng đầu (IG / TikTok / FB)
   // ===========================
   const instagram: Platform = {
+    key: "instagram",
     name: "Instagram 📸",
     desc: "Follow / Likes / Views — BH 7 ngày hoặc 1 tháng.",
     sections: [
@@ -154,6 +234,7 @@ export default function Social() {
   };
 
   const tiktok: Platform = {
+    key: "tiktok",
     name: "TikTok 🎵",
     desc: "Follow / Likes / Views — tách rõ, dễ chọn.",
     sections: [
@@ -191,6 +272,7 @@ export default function Social() {
   };
 
   const facebook: Platform = {
+    key: "facebook",
     name: "Facebook 📘",
     sections: [
       {
@@ -280,13 +362,23 @@ export default function Social() {
                           <td className="py-2 px-2 text-right align-middle">
                             <div className="flex items-center justify-end gap-2 flex-nowrap">
                               <span className="whitespace-nowrap">{r.g7 ?? "–"}</span>
-                              {r.g7 && <ActionBtn onClick={() => handleBuy(r.label + " BH7", r.g7!)} disabled={loading} />}
+                              {r.g7 && (
+                                <ActionBtn
+                                  onClick={() => handleBuy(pf.key, sec, r.label + " BH7", r.g7!)}
+                                  disabled={loading}
+                                />
+                              )}
                             </div>
                           </td>
                           <td className="py-2 px-2 text-right align-middle">
                             <div className="flex items-center justify-end gap-2 flex-nowrap">
                               <span className="whitespace-nowrap">{r.g30 ?? "–"}</span>
-                              {r.g30 && <ActionBtn onClick={() => handleBuy(r.label + " BH30", r.g30!)} disabled={loading} />}
+                              {r.g30 && (
+                                <ActionBtn
+                                  onClick={() => handleBuy(pf.key, sec, r.label + " BH30", r.g30!)}
+                                  disabled={loading}
+                                />
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -312,7 +404,10 @@ export default function Social() {
                             <div className="flex items-center justify-end gap-2 flex-nowrap">
                               <span className="whitespace-nowrap">{r.g30 ?? r.value ?? "–"}</span>
                               {(r.g30 || r.value) && (
-                                <ActionBtn onClick={() => handleBuy(r.label, r.g30 ?? r.value ?? "")} disabled={loading} />
+                                <ActionBtn
+                                  onClick={() => handleBuy(pf.key, sec, r.label, r.g30 ?? r.value ?? "")}
+                                  disabled={loading}
+                                />
                               )}
                             </div>
                           </td>
@@ -322,7 +417,7 @@ export default function Social() {
                   </table>
                 )}
 
-                {/* ❤️ SIMPLE */}
+                {/* ❤️ SIMPLE (Likes / Views / Comments) */}
                 {sec.kind === "simple" && (
                   <table className="w-full text-[13px] sm:text-sm tabular-nums border-collapse min-w-[320px]">
                     <tbody>
@@ -332,7 +427,12 @@ export default function Social() {
                           <td className="py-2 px-3 text-right align-middle">
                             <div className="flex items-center justify-end gap-2 flex-nowrap">
                               <span className="whitespace-nowrap">{r.value ?? "–"}</span>
-                              {r.value && <ActionBtn onClick={() => handleBuy(r.label, r.value!)} disabled={loading} />}
+                              {r.value && (
+                                <ActionBtn
+                                  onClick={() => handleBuy(pf.key, sec, r.label, r.value!)}
+                                  disabled={loading}
+                                />
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -516,7 +616,8 @@ export default function Social() {
             <DuoBoardSection {...boardUnlock} />
             <DuoBoardSection {...boardTick} />
           </div>
-
+          <section id="advice" className="mt-24" />
+          <QuickAdviceButton />
           <footer className="py-10 text-center text-xs text-gray-600 dark:text-slate-300">
             © {new Date().getFullYear()} LameaLux — Follow Service
           </footer>
@@ -529,6 +630,9 @@ export default function Social() {
           open={showModal}
           onClose={() => setShowModal(false)}
           onConfirm={handleConfirmLink}
+          // 👇👇 Thêm 2 props gợi ý link (nếu LinkModal chưa có, thêm vào file component của bé)
+          placeholder={pendingItem?.placeholder}
+          helperText={pendingItem?.helper}
         />
       )}
 
@@ -549,6 +653,8 @@ export default function Social() {
           }}
         />
       )}
+
+      
     </>
   );
 }
