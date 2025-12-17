@@ -567,7 +567,7 @@ export default function Social() {
   return (
     <>
       <Head>
-        <title>LameaLux — Dịch vụ Follow & Bảng giá</title>
+        <title>nguyenlamsocial.ig — Dịch vụ Follow & Bảng giá</title>
       </Head>
 
       <div className="min-h-screen bg-gradient-to-br from-[#E4ECFF] via-[#F6F4FF] to-[#F9FBFF] dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
@@ -619,7 +619,7 @@ export default function Social() {
           <section id="advice" className="mt-24" />
           <QuickAdviceButton />
           <footer className="py-10 text-center text-xs text-gray-600 dark:text-slate-300">
-            © {new Date().getFullYear()} LameaLux — Follow Service
+            © {new Date().getFullYear()} nguyenlamsocial.ig — Follow Service
           </footer>
         </main>
       </div>
