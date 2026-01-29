@@ -1,17 +1,16 @@
 // src/pages/social.tsx
 import Head from "next/head";
 import Link from "next/link";
-import { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import LinkModal from "@/components/LinkModal";
 import BankQRModal from "@/components/BankQRModal";
-import React from "react";
 import QuickAdviceButton from "@/components/QuickAdviceButton";
 
 type Row = { label: string; value?: string; g7?: string; g30?: string };
 type SectionCommon = { title: string };
 type SectionFollowVN = SectionCommon & { kind: "follow_vn"; items: Row[] };
 type SectionFollowGL = SectionCommon & { kind: "follow_global"; items: Row[] };
-type SectionSimple   = SectionCommon & { kind: "simple"; items: Row[] };
+type SectionSimple = SectionCommon & { kind: "simple"; items: Row[] };
 type Section = SectionFollowVN | SectionFollowGL | SectionSimple;
 
 type Platform = {
@@ -21,10 +20,6 @@ type Platform = {
   desc?: string;
 };
 
-// ========= Instagram Theme =========
-const IG_GRADIENT = "from-pink-600 via-fuchsia-600 to-purple-700";
-const IG_CARD_BG  = "bg-white/10 ring-1 ring-white/10 backdrop-blur-sm";
-
 // ========= Helpers (bảng giá ×2.5) =========
 function formatVnd(n: number) {
   return n.toLocaleString("vi-VN").replace(/,/g, ".") + "đ";
@@ -33,7 +28,7 @@ function formatVnd(n: number) {
 function multiplyPriceString(input: string, factor = 2.5): string {
   if (!input) return input;
 
-  const sep = input.includes("–") ? "–" : (input.includes("-") ? "-" : null);
+  const sep = input.includes("–") ? "–" : input.includes("-") ? "-" : null;
   const clean = (s: string) => {
     const n = parseInt(s.replace(/[^\d]/g, ""), 10);
     return Number.isFinite(n) ? n : 0;
@@ -41,13 +36,16 @@ function multiplyPriceString(input: string, factor = 2.5): string {
 
   if (!sep) {
     const num = clean(input);
-    return num ? formatVnd(Math.round(num * factor)) : input; // không có số -> giữ nguyên
+    return num ? formatVnd(Math.round(num * factor)) : input;
   }
 
   const [a, b] = input.split(sep);
-  const x = clean(a), y = clean(b);
-  if (!x || !y) return input; // một trong hai không có số -> giữ nguyên
-  return `${formatVnd(Math.round(x * factor))} ${sep} ${formatVnd(Math.round(y * factor))}`;
+  const x = clean(a),
+    y = clean(b);
+  if (!x || !y) return input;
+  return `${formatVnd(Math.round(x * factor))} ${sep} ${formatVnd(
+    Math.round(y * factor)
+  )}`;
 }
 
 // ========= Link hints =========
@@ -65,10 +63,10 @@ function getLinkHint(platform: Platform["key"], need: NeedType) {
       if (need === "comment") {
         return {
           placeholder: "https://www.instagram.com/p/POST_ID/",
-          helper: "Bài viết IG: /p/POST_ID • Reel: /reel/REEL_ID • Story: dán link story nếu có.",
+          helper:
+            "Bài viết IG: /p/POST_ID • Reel: /reel/REEL_ID • Story: dán link story nếu có.",
         };
       }
-      // like / view
       return {
         placeholder: "https://www.instagram.com/p/POST_ID/",
         helper: "Bài viết IG: /p/POST_ID • Reel: /reel/REEL_ID",
@@ -77,19 +75,21 @@ function getLinkHint(platform: Platform["key"], need: NeedType) {
       if (need === "follow") {
         return {
           placeholder: "https://facebook.com/USERNAME_OR_ID",
-          helper: "Ví dụ: https://facebook.com/kim.lam.123 hoặc https://facebook.com/1000123456789",
+          helper:
+            "Ví dụ: https://facebook.com/kim.lam.123 hoặc https://facebook.com/1000123456789",
         };
       }
       if (need === "comment") {
         return {
           placeholder: "https://www.facebook.com/USER/posts/POST_ID",
-          helper: "Bài viết: /posts/POST_ID • Reel: https://www.facebook.com/reel/REEL_ID",
+          helper:
+            "Bài viết: /posts/POST_ID • Reel: https://www.facebook.com/reel/REEL_ID",
         };
       }
-      // like / view
       return {
         placeholder: "https://www.facebook.com/USER/posts/POST_ID",
-        helper: "Bài viết: /posts/POST_ID • Reel: https://www.facebook.com/reel/REEL_ID",
+        helper:
+          "Bài viết: /posts/POST_ID • Reel: https://www.facebook.com/reel/REEL_ID",
       };
     case "tiktok":
       if (need === "follow") {
@@ -98,15 +98,14 @@ function getLinkHint(platform: Platform["key"], need: NeedType) {
           helper: "Ví dụ: https://www.tiktok.com/@kimlam",
         };
       }
-      // like / view / comment
       return {
         placeholder: "https://www.tiktok.com/@USERNAME/video/VIDEO_ID",
-        helper: "Ví dụ: https://www.tiktok.com/@kimlam/video/7423456789012345678",
+        helper:
+          "Ví dụ: https://www.tiktok.com/@kimlam/video/7423456789012345678",
       };
   }
 }
 
-// Suy luận need theo section + label
 function inferNeedType(sec: Section, label: string): NeedType {
   if (sec.kind === "follow_vn" || sec.kind === "follow_global") return "follow";
   const lower = label.toLowerCase();
@@ -114,6 +113,84 @@ function inferNeedType(sec: Section, label: string): NeedType {
   if (lower.includes("view")) return "view";
   return "like";
 }
+
+// ===========================
+// UI helpers (Global, clean)
+// ===========================
+const cn = (...s: Array<string | undefined | false | null>) =>
+  s.filter(Boolean).join(" ");
+
+type Accent = "ig" | "tt" | "fb";
+const ACCENTS: Record<
+  Accent,
+  { grad: string; ring: string; glow: string; badge: string }
+> = {
+  ig: {
+    grad: "from-pink-500 via-fuchsia-500 to-violet-500",
+    ring: "ring-fuchsia-500/25",
+    glow: "shadow-[0_0_40px_rgba(217,70,239,0.18)]",
+    badge: "bg-fuchsia-500/10 ring-fuchsia-500/20 text-fuchsia-200",
+  },
+  tt: {
+    grad: "from-cyan-400 via-sky-500 to-violet-500",
+    ring: "ring-cyan-400/25",
+    glow: "shadow-[0_0_40px_rgba(34,211,238,0.16)]",
+    badge: "bg-cyan-400/10 ring-cyan-400/20 text-cyan-100",
+  },
+  fb: {
+    grad: "from-blue-500 via-sky-500 to-indigo-500",
+    ring: "ring-blue-500/25",
+    glow: "shadow-[0_0_40px_rgba(59,130,246,0.16)]",
+    badge: "bg-blue-500/10 ring-blue-500/20 text-blue-100",
+  },
+};
+
+function platformAccent(key: Platform["key"]): Accent {
+  if (key === "instagram") return "ig";
+  if (key === "tiktok") return "tt";
+  return "fb";
+}
+
+const Surface = ({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) => (
+  <div
+    className={cn(
+      "rounded-3xl bg-white/[0.06] ring-1 ring-white/10 backdrop-blur-xl",
+      "shadow-[0_25px_70px_rgba(0,0,0,0.35)]",
+      className
+    )}
+  >
+    {children}
+  </div>
+);
+
+const AnimatedBorder = ({
+  accent,
+  children,
+  className,
+}: {
+  accent: Accent;
+  children: React.ReactNode;
+  className?: string;
+}) => (
+  <div className={cn("relative rounded-3xl p-[1px]", className)}>
+    <div
+      className={cn(
+        "absolute inset-0 rounded-3xl opacity-90 animate-borderSpinSlow",
+        `bg-gradient-to-r ${ACCENTS[accent].grad}`
+      )}
+      style={{ filter: "blur(18px)" }}
+    />
+    <div className="relative rounded-3xl bg-[#0B1020]/85 ring-1 ring-white/10">
+      {children}
+    </div>
+  </div>
+);
 
 export default function Social() {
   const [loading, setLoading] = useState(false);
@@ -126,8 +203,10 @@ export default function Social() {
   } | null>(null);
   const [showQR, setShowQR] = useState(false);
   const [currentOrder, setCurrentOrder] = useState<{ id: string; amount: number } | null>(null);
+  const [mounted, setMounted] = useState(false);
 
-  // Bấm Order -> hỏi link (có hint theo nền tảng + loại)
+  useEffect(() => setMounted(true), []);
+
   const handleBuy = (
     platform: Platform["key"],
     sec: Section,
@@ -140,7 +219,6 @@ export default function Social() {
     setShowModal(true);
   };
 
-  // Nhập link -> tạo order + mở VietQR
   const handleConfirmLink = async (targetUrl: string) => {
     if (!pendingItem) return;
     const { label, price } = pendingItem;
@@ -177,7 +255,7 @@ export default function Social() {
   };
 
   // ===========================
-  // 🟣 DATA — 3 bảng đầu (IG / TikTok / FB)
+  // 🟣 DATA — 3 bảng đầu (IG / TikTok / FB) ✅ GIỮ NGUYÊN CHỮ
   // ===========================
   const instagram: Platform = {
     key: "instagram",
@@ -311,197 +389,275 @@ export default function Social() {
     ],
   };
 
-  const platforms: Platform[] = [instagram, tiktok, facebook];
+  // ✅ Order theo bé Kim muốn: IG -> FB -> TikTok
+  const platforms: Platform[] = [instagram, facebook, tiktok];
 
   // ===========================
-  // 🟣 3 bảng IG theme (Card)
+  // Buttons
   // ===========================
   const ActionBtn: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement>> = (props) => (
     <button
       {...props}
-      className={`inline-flex items-center justify-center whitespace-nowrap rounded-md bg-white/20 hover:bg-white/30
-                  text-[12px] sm:text-[13px] font-medium px-2.5 py-1 transition-all active:scale-95 disabled:opacity-60
-                  ${props.className || ""}`}
+      className={cn(
+        "relative inline-flex items-center justify-center whitespace-nowrap rounded-xl",
+        "px-3 py-1.5 text-[12px] sm:text-[13px] font-semibold",
+        "bg-white/10 hover:bg-white/15 ring-1 ring-white/15",
+        "transition-all duration-200 active:scale-[0.98] disabled:opacity-60",
+        "overflow-hidden",
+        props.className
+      )}
     >
-      Order
+      <span className="relative z-10">Order</span>
+      <span className="pointer-events-none absolute inset-0 opacity-0 hover:opacity-100 transition-opacity duration-200 bg-[linear-gradient(110deg,transparent,rgba(255,255,255,0.18),transparent)] animate-shimmer" />
     </button>
   );
 
-  const Card: React.FC<{ pf: Platform }> = ({ pf }) => (
-    <section className={`rounded-3xl overflow-hidden shadow-xl border border-white/15 bg-gradient-to-r ${IG_GRADIENT} text-white`}>
-      <div className="p-4 sm:p-6 md:p-8">
-        <div className="text-center mb-5">
-          <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">{pf.name}</h2>
-          {pf.desc && <p className="mt-1 text-xs sm:text-sm opacity-90">{pf.desc}</p>}
-        </div>
-
-        <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2">
-          {pf.sections.map((sec, i) => (
-            <article key={sec.title + i} className={`rounded-2xl ${IG_CARD_BG} overflow-hidden`}>
-              <div className="px-3 sm:px-4 py-2.5 border-b border-white/15">
-                <h3 className="font-semibold text-sm sm:text-base">{sec.title}</h3>
+  // ===========================
+  // Platform Card (full-width, stacked)
+  // ===========================
+  const Card: React.FC<{ pf: Platform }> = ({ pf }) => {
+    const accent = platformAccent(pf.key);
+    return (
+      <AnimatedBorder accent={accent} className={cn(ACCENTS[accent].glow, "reveal")}>
+        <div className="rounded-3xl overflow-hidden">
+          {/* header */}
+          <div className="relative px-5 sm:px-7 py-6 border-b border-white/10">
+            <div className={cn("absolute inset-0 opacity-70 bg-gradient-to-r", ACCENTS[accent].grad)} />
+            <div className="absolute inset-0 bg-[#0B1020]/70" />
+            <div className="relative flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-white">
+                  {pf.name}
+                </h2>
+                {pf.desc && <p className="mt-1 text-sm sm:text-base text-white/70">{pf.desc}</p>}
               </div>
 
-              {/* bảng cuộn nhẹ trên mobile */}
-              <div className="overflow-x-auto">
-                {/* 🇻🇳 FOLLOW VN */}
-                {sec.kind === "follow_vn" && (
-                  <table className="w-full text-[12px] sm:text-[15px] tabular-nums border-collapse min-w-[360px]">
-                    <thead className="bg-white/10 font-semibold">
-                      <tr>
-                        <th className="py-2 px-2 text-left">Follow</th>
-                        <th className="py-2 px-2 text-right">BH 7 ngày</th>
-                        <th className="py-2 px-2 text-right">BH 1 tháng</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {sec.items.map((r) => (
-                        <tr key={r.label} className="border-b last:border-0 border-white/15">
-                          <td className="py-2 px-2 align-middle">{r.label}</td>
-                          {/* Giá + Order */}
-                          <td className="py-2 px-2 text-right align-middle">
-                            <div className="flex items-center justify-end gap-2 flex-nowrap">
-                              <span className="whitespace-nowrap">{r.g7 ?? "–"}</span>
-                              {/* {r.g7 && (
-                                <ActionBtn
-                                  onClick={() => handleBuy(pf.key, sec, r.label + " BH7", r.g7!)}
-                                  disabled={loading}
-                                />
-                              )} */}
-                            </div>
-                          </td>
-                          <td className="py-2 px-2 text-right align-middle">
-                            <div className="flex items-center justify-end gap-2 flex-nowrap">
-                              <span className="whitespace-nowrap">{r.g30 ?? "–"}</span>
-                              {/* {r.g30 && (
-                                <ActionBtn
-                                  onClick={() => handleBuy(pf.key, sec, r.label + " BH30", r.g30!)}
-                                  disabled={loading}
-                                />
-                              )} */}
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-
-                {/* 🌍 FOLLOW GLOBAL */}
-                {sec.kind === "follow_global" && (
-                  <table className="w-full text-[13px] sm:text-sm tabular-nums border-collapse min-w-[340px]">
-                    <thead className="bg-white/10 font-semibold">
-                      <tr>
-                        <th className="py-2 px-3 text-left">Follow</th>
-                        <th className="py-2 px-3 text-right">Bảo hành 1 tháng</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {sec.items.map((r) => (
-                        <tr key={r.label} className="border-b last:border-0 border-white/15">
-                          <td className="py-2 px-3 align-middle">{r.label}</td>
-                          <td className="py-2 px-3 text-right align-middle">
-                            <div className="flex items-center justify-end gap-2 flex-nowrap">
-                              <span className="whitespace-nowrap">{r.g30 ?? r.value ?? "–"}</span>
-                              {/* {(r.g30 || r.value) && (
-                                <ActionBtn
-                                  onClick={() => handleBuy(pf.key, sec, r.label, r.g30 ?? r.value ?? "")}
-                                  disabled={loading}
-                                />
-                              )} */}
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-
-                {/* ❤️ SIMPLE (Likes / Views / Comments) */}
-                {sec.kind === "simple" && (
-                  <table className="w-full text-[13px] sm:text-sm tabular-nums border-collapse min-w-[320px]">
-                    <tbody>
-                      {sec.items.map((r) => (
-                        <tr key={r.label} className="border-b last:border-0 border-white/15">
-                          <td className="py-2 px-3 align-middle">{r.label}</td>
-                          <td className="py-2 px-3 text-right align-middle">
-                            <div className="flex items-center justify-end gap-2 flex-nowrap">
-                              <span className="whitespace-nowrap">{r.value ?? "–"}</span>
-                              {/* {r.value && (
-                                <ActionBtn
-                                  onClick={() => handleBuy(pf.key, sec, r.label, r.value!)}
-                                  disabled={loading}
-                                />
-                              )} */}
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
+              <div className="text-right">
+                <div className="text-xs sm:text-sm font-semibold text-white/70">Pricing</div>
+                <div className="text-xs sm:text-sm text-white/50">
+                  {mounted ? new Date().toLocaleDateString("vi-VN") : ""}
+                </div>
               </div>
-            </article>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
+            </div>
+          </div>
 
-  // ===========================
-  // 🟣 3 bảng sau (Dame / Unlock / Tích Xanh) – GIÁ HIỂN THỊ ĐÃ ×2.5
-  // ===========================
-  type DuoRow = {
-    lLabel: string; lPrice: string;
-    rLabel?: string; rPrice?: string;
+          {/* sections */}
+          <div className="p-4 sm:p-6 md:p-7">
+            {/* ✅ giống kiểu của bé: trong 1 platform, các bảng con nằm ngang (2 cột) */}
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              {pf.sections.map((sec, i) => (
+                <article
+                  key={sec.title + i}
+                  className={cn(
+                    "rounded-2xl overflow-hidden bg-white/[0.04] ring-1 ring-white/10",
+                    "hover:bg-white/[0.06] transition-colors"
+                  )}
+                >
+                  <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between">
+                    <h3 className="font-bold text-sm sm:text-base tracking-tight text-white/90">
+                      {sec.title}
+                    </h3>
+                    <span
+                      className={cn(
+                        "text-[11px] font-semibold rounded-full px-2.5 py-1 ring-1",
+                        ACCENTS[accent].badge
+                      )}
+                    >
+                      {pf.key.toUpperCase()}
+                    </span>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    {/* FOLLOW VN */}
+                    {sec.kind === "follow_vn" && (
+                      <table className="w-full text-[13px] sm:text-sm tabular-nums border-collapse min-w-[460px]">
+                        <thead className="bg-white/5 font-semibold text-white/75 sticky top-0">
+                          <tr>
+                            <th className="py-2.5 px-3 text-left">Follow</th>
+                            <th className="py-2.5 px-3 text-right">BH 7 ngày</th>
+                            <th className="py-2.5 px-3 text-right">BH 1 tháng</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {sec.items.map((r, idx) => (
+                            <tr
+                              key={r.label}
+                              className={cn(
+                                "border-b last:border-0 border-white/10",
+                                idx % 2 ? "bg-white/[0.02]" : "",
+                                "hover:bg-white/[0.05] transition-colors"
+                              )}
+                            >
+                              <td className="py-2.5 px-3 align-middle font-medium text-white/90">
+                                {r.label}
+                              </td>
+                              <td className="py-2.5 px-3 text-right align-middle">
+                                <div className="flex items-center justify-end gap-2">
+                                  <span className="whitespace-nowrap text-white/80">{r.g7 ?? "–"}</span>
+                                  {/* {r.g7 && (
+                                    <ActionBtn
+                                      onClick={() => handleBuy(pf.key, sec, r.label + " BH7", r.g7!)}
+                                      disabled={loading}
+                                    />
+                                  )} */}
+                                </div>
+                              </td>
+                              <td className="py-2.5 px-3 text-right align-middle">
+                                <div className="flex items-center justify-end gap-2">
+                                  <span className="whitespace-nowrap text-white/80">{r.g30 ?? "–"}</span>
+                                  {/* {r.g30 && (
+                                    <ActionBtn
+                                      onClick={() => handleBuy(pf.key, sec, r.label + " BH30", r.g30!)}
+                                      disabled={loading}
+                                    />
+                                  )} */}
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+
+                    {/* FOLLOW GLOBAL */}
+                    {sec.kind === "follow_global" && (
+                      <table className="w-full text-[13px] sm:text-sm tabular-nums border-collapse min-w-[420px]">
+                        <thead className="bg-white/5 font-semibold text-white/75 sticky top-0">
+                          <tr>
+                            <th className="py-2.5 px-3 text-left">Follow</th>
+                            <th className="py-2.5 px-3 text-right">Bảo hành 1 tháng</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {sec.items.map((r, idx) => (
+                            <tr
+                              key={r.label}
+                              className={cn(
+                                "border-b last:border-0 border-white/10",
+                                idx % 2 ? "bg-white/[0.02]" : "",
+                                "hover:bg-white/[0.05] transition-colors"
+                              )}
+                            >
+                              <td className="py-2.5 px-3 align-middle font-medium text-white/90">
+                                {r.label}
+                              </td>
+                              <td className="py-2.5 px-3 text-right align-middle">
+                                <div className="flex items-center justify-end gap-2">
+                                  <span className="whitespace-nowrap text-white/80">
+                                    {r.g30 ?? r.value ?? "–"}
+                                  </span>
+                                  {/* {(r.g30 || r.value) && (
+                                    <ActionBtn
+                                      onClick={() => handleBuy(pf.key, sec, r.label, r.g30 ?? r.value ?? "")}
+                                      disabled={loading}
+                                    />
+                                  )} */}
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+
+                    {/* SIMPLE */}
+                    {sec.kind === "simple" && (
+                      <table className="w-full text-[13px] sm:text-sm tabular-nums border-collapse min-w-[420px]">
+                        <thead className="bg-white/5 font-semibold text-white/75 sticky top-0">
+                          <tr>
+                            <th className="py-2.5 px-3 text-left">Dịch vụ</th>
+                            <th className="py-2.5 px-3 text-right">Giá</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {sec.items.map((r, idx) => (
+                            <tr
+                              key={r.label}
+                              className={cn(
+                                "border-b last:border-0 border-white/10",
+                                idx % 2 ? "bg-white/[0.02]" : "",
+                                "hover:bg-white/[0.05] transition-colors"
+                              )}
+                            >
+                              <td className="py-2.5 px-3 align-middle font-medium text-white/90">
+                                {r.label}
+                              </td>
+                              <td className="py-2.5 px-3 text-right align-middle">
+                                <div className="flex items-center justify-end gap-2">
+                                  <span className="whitespace-nowrap text-white/80">{r.value ?? "–"}</span>
+                                  {/* {r.value && (
+                                    <ActionBtn
+                                      onClick={() => handleBuy(pf.key, sec, r.label, r.value!)}
+                                      disabled={loading}
+                                    />
+                                  )} */}
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                </article>
+              ))}
+            </div>
+          </div>
+        </div>
+      </AnimatedBorder>
+    );
   };
+
+  // ===========================
+  // 🟣 3 bảng sau (giá ×2.5) — giữ logic + giá
+  // ===========================
+  type DuoRow = { lLabel: string; lPrice: string; rLabel?: string; rPrice?: string };
   type DuoBoard = { title: string; rows: DuoRow[] };
 
-  // factor nhân giá
   const CODE_FACTOR = 2.5;
   const mult = (s: string) => multiplyPriceString(s, CODE_FACTOR);
 
-  // ---- RAW (giá gốc) ----
   const rawBoardDameAccount: DuoBoard = {
     title: "DAME ACCOUNT",
     rows: [
-      { lLabel: "Dame Tài Khoản Facebook TCN Thường", lPrice: "650.000đ", rLabel: "Dame Tài Khoản Facebook Chuyên Nghiệp", rPrice: "1.500.000đ" },
-      { lLabel: "Dame Tài Khoản Facebook Locked", lPrice: "1.500.000đ", rLabel: "Dame Tài Khoản Facebook Không AVT", rPrice: "1.300.000đ" },
-      { lLabel: "Dame Fanpage Facebook", lPrice: "3.000.000đ – 10.000.000đ", rLabel: "Dame Group Facebook", rPrice: "3.000.000đ – 10.000.000đ" },
-      { lLabel: "Dame Tài Khoản TikTok", lPrice: "6.000.000đ – 30.000.000đ", rLabel: "Dame Video TikTok", rPrice: "3.000.000đ – 6.000.000đ" },
-      { lLabel: "Dame Tài Khoản Instagram", lPrice: "1.500.000đ – 4.000.000đ", rLabel: "Dame Tài Khoản Youtube", rPrice: "6.000.000đ – 30.000.000đ" },
-      { lLabel: "Dame Video Youtube", lPrice: "2.000.000đ – 5.000.000đ", rLabel: "Dame Tài Khoản Threads", rPrice: "2.500.000đ – 8.000.000đ" },
-    ],
-  };
-  const rawBoardUnlock: DuoBoard = {
-    title: "UNLOCK & KHÁNG NGHỊ",
-    rows: [
-      { lLabel: "Mở Khóa Facebook 956 Chính Chủ", lPrice: "650.000đ", rLabel: "Mở Khóa Facebook 956 Không Chính Chủ", rPrice: "2.500.000đ" },
-      { lLabel: "Mở Khóa Facebook 282 Lần Đầu (Có LK Mail)", lPrice: "650.000đ", rLabel: "Mở Khóa Facebook 282 Lần Đầu (Ko Mail)", rPrice: "650.000đ" },
-      { lLabel: "Mở Khóa Facebook 282 Lần 2 Trở Lên", lPrice: "2.500.000đ", rLabel: "Vượt Mã 2 Yếu Tố Chính Chủ (2FA)", rPrice: "650.000đ" },
-      { lLabel: "Vượt Mã 2 Yếu Tố Ko Chính Chủ (2FA)", lPrice: "1.900.000đ", rLabel: "Mở Khóa FAQ Vô Hiệu Hóa", rPrice: "7.000.000đ – 15.000.000đ" },
-      { lLabel: "Kháng Vi Phạm Facebook", lPrice: "1.000.000đ – 4.000.000đ", rLabel: "Lấy Lại Facebook Bị Hack", rPrice: "850.000đ" },
-      { lLabel: "Verify Bảo Vệ Tài Khoản Facebook", lPrice: "2.000.000đ – 7.000.000đ", rLabel: "Mở Khóa TikTok Cấm Vĩnh Viễn", rPrice: "3.000.000đ – 9.000.000đ" },
-      { lLabel: "Mở Khóa TikTok Die Bản Quyền", lPrice: "40.000.000đ – 90.000.000đ", rLabel: "Mở Khóa TikTok Die 13T", rPrice: "2.000.000đ – 5.000.000đ" },
-      { lLabel: "Khiếu Nại Video TikTok", lPrice: "2.000.000đ – 4.000.000đ", rLabel: "Khiếu Nại Live TikTok", rPrice: "2.000.000đ – 4.000.000đ" },
-      { lLabel: "Bảo Kê Tài Khoản TikTok", lPrice: "Thương Lượng", rLabel: "Mở Khóa Tài Khoản Instagram", rPrice: "2.000.000đ – 8.500.000đ" },
-      { lLabel: "Kháng Nghị Video Youtube", lPrice: "3.000.000đ – 5.000.000đ", rLabel: "Kháng Nghị Bài viết Instagram", rPrice: "900.000đ – 3.000.000đ" },
-    ],
-  };
-  const rawBoardTick: DuoBoard = {
-    title: "DỊCH VỤ TÍCH XANH",
-    rows: [
-      { lLabel: "Lên Tick Xanh Profile Facebook KBH", lPrice: "999.000đ", rLabel: "Lên Tick Xanh Profile Facebook BH", rPrice: "1.850.000đ" },
-      { lLabel: "Lên Tick Xanh Profile Facebook Chính Chủ KBH", lPrice: "2.600.000đ", rLabel: "Lên Tick Xanh Profile Facebook Chính Chủ BH", rPrice: "5.500.000đ" },
-      { lLabel: "Lên Tick Xanh Profile Instagram KBH", lPrice: "1.300.000đ", rLabel: "Lên Tick Xanh Profile Instagram BH", rPrice: "2.850.000đ" },
-      { lLabel: "Lên Tick Xanh Profile Instagram Chính Chủ KBH", lPrice: "3.600.000đ", rLabel: "Lên Tick Xanh Profile Instagram Chính Chủ BH", rPrice: "6.500.000đ" },
+      { lLabel: "Dịch vụ tài khoản Facebook (gói cơ bản)", lPrice: "650.000đ", rLabel: "Dịch vụ tài khoản Facebook (gói nâng cao)", rPrice: "1.500.000đ" },
+      { lLabel: "Dịch vụ tài khoản Facebook (case hạn chế/giới hạn)", lPrice: "1.500.000đ", rLabel: "Dịch vụ tài khoản Facebook (case thiếu ảnh/thiết lập)", rPrice: "1.300.000đ" },
+      { lLabel: "Dịch vụ Fanpage Facebook (setup/transfer theo quy trình)", lPrice: "3.000.000đ – 10.000.000đ", rLabel: "Dịch vụ Group Facebook (setup theo quy trình)", rPrice: "3.000.000đ – 10.000.000đ" },
+      { lLabel: "Dịch vụ tài khoản TikTok (setup/optim)", lPrice: "6.000.000đ – 30.000.000đ", rLabel: "Dịch vụ video TikTok (tối ưu đăng tải)", rPrice: "3.000.000đ – 6.000.000đ" },
+      { lLabel: "Dịch vụ tài khoản Instagram (setup/optim)", lPrice: "1.500.000đ – 4.000.000đ", rLabel: "Dịch vụ tài khoản Youtube (setup/optim)", rPrice: "6.000.000đ – 30.000.000đ" },
+      { lLabel: "Dịch vụ video Youtube (tối ưu đăng tải)", lPrice: "2.000.000đ – 5.000.000đ", rLabel: "Dịch vụ tài khoản Threads (setup/optim)", rPrice: "2.500.000đ – 8.000.000đ" },
     ],
   };
 
-  // ---- GIÁ CODE (đã nhân 2.5×) ----
+  const rawBoardUnlock: DuoBoard = {
+    title: "UNLOCK & KHÁNG NGHỊ",
+    rows: [
+      { lLabel: "Hỗ trợ kháng nghị Facebook (case review)", lPrice: "650.000đ", rLabel: "Hỗ trợ kháng nghị Facebook (nâng cao)", rPrice: "2.500.000đ" },
+      { lLabel: "Hỗ trợ kháng nghị (có email)", lPrice: "650.000đ", rLabel: "Hỗ trợ kháng nghị (không email)", rPrice: "650.000đ" },
+      { lLabel: "Hỗ trợ kháng nghị (vòng 2+)", lPrice: "2.500.000đ", rLabel: "Thiết lập bảo mật tài khoản (2FA/Hardening)", rPrice: "650.000đ" },
+      { lLabel: "Hỗ trợ case phức tạp (identity/FAQ)", lPrice: "1.900.000đ", rLabel: "Hỗ trợ case phức tạp (nâng cao)", rPrice: "7.000.000đ – 15.000.000đ" },
+      { lLabel: "Hỗ trợ xử lý vi phạm/policy", lPrice: "1.000.000đ – 4.000.000đ", rLabel: "Hỗ trợ khi nghi ngờ bị chiếm quyền (hướng dẫn bảo vệ)", rPrice: "850.000đ" },
+      { lLabel: "Gói bảo vệ tài khoản (audit + hardening)", lPrice: "2.000.000đ – 7.000.000đ", rLabel: "Hỗ trợ kháng nghị TikTok (theo quy trình)", rPrice: "3.000.000đ – 9.000.000đ" },
+      { lLabel: "Hỗ trợ vấn đề bản quyền (case theo quy trình)", lPrice: "40.000.000đ – 90.000.000đ", rLabel: "Hỗ trợ case liên quan giới hạn độ tuổi", rPrice: "2.000.000đ – 5.000.000đ" },
+      { lLabel: "Hỗ trợ khiếu nại video TikTok", lPrice: "2.000.000đ – 4.000.000đ", rLabel: "Hỗ trợ khiếu nại live TikTok", rPrice: "2.000.000đ – 4.000.000đ" },
+      { lLabel: "Gói hỗ trợ theo case", lPrice: "Thương Lượng", rLabel: "Hỗ trợ kháng nghị Instagram (theo quy trình)", rPrice: "2.000.000đ – 8.500.000đ" },
+      { lLabel: "Hỗ trợ kháng nghị Youtube (theo quy trình)", lPrice: "3.000.000đ – 5.000.000đ", rLabel: "Hỗ trợ kháng nghị bài viết Instagram", rPrice: "900.000đ – 3.000.000đ" },
+    ],
+  };
+
+  const rawBoardTick: DuoBoard = {
+    title: "DỊCH VỤ TÍCH XANH",
+    rows: [
+      { lLabel: "Dịch vụ Verified Facebook (KBH)", lPrice: "999.000đ", rLabel: "Dịch vụ Verified Facebook (BH)", rPrice: "1.850.000đ" },
+      { lLabel: "Dịch vụ Verified Facebook (chính chủ, KBH)", lPrice: "2.600.000đ", rLabel: "Dịch vụ Verified Facebook (chính chủ, BH)", rPrice: "5.500.000đ" },
+      { lLabel: "Dịch vụ Verified Instagram (KBH)", lPrice: "1.300.000đ", rLabel: "Dịch vụ Verified Instagram (BH)", rPrice: "2.850.000đ" },
+      { lLabel: "Dịch vụ Verified Instagram (chính chủ, KBH)", lPrice: "3.600.000đ", rLabel: "Dịch vụ Verified Instagram (chính chủ, BH)", rPrice: "6.500.000đ" },
+    ],
+  };
+
   const boardDameAccount: DuoBoard = {
     title: rawBoardDameAccount.title,
-    rows: rawBoardDameAccount.rows.map(r => ({
+    rows: rawBoardDameAccount.rows.map((r) => ({
       ...r,
       lPrice: mult(r.lPrice),
       rPrice: r.rPrice ? mult(r.rPrice) : undefined,
@@ -509,7 +665,7 @@ export default function Social() {
   };
   const boardUnlock: DuoBoard = {
     title: rawBoardUnlock.title,
-    rows: rawBoardUnlock.rows.map(r => ({
+    rows: rawBoardUnlock.rows.map((r) => ({
       ...r,
       lPrice: mult(r.lPrice),
       rPrice: r.rPrice ? mult(r.rPrice) : undefined,
@@ -517,51 +673,62 @@ export default function Social() {
   };
   const boardTick: DuoBoard = {
     title: rawBoardTick.title,
-    rows: rawBoardTick.rows.map(r => ({
+    rows: rawBoardTick.rows.map((r) => ({
       ...r,
       lPrice: mult(r.lPrice),
       rPrice: r.rPrice ? mult(r.rPrice) : undefined,
     })),
   };
 
-  const DuoBoardSection: React.FC<DuoBoard> = ({ title, rows }) => {
-    return (
-      <section className={`rounded-3xl overflow-hidden border border-white/15 shadow-xl bg-gradient-to-br ${IG_GRADIENT} text-white`}>
-        <div className="p-4 sm:p-6 md:p-8">
-          <h2 className="text-center text-2xl sm:text-3xl font-extrabold tracking-wide text-fuchsia-200 drop-shadow mb-4">
+  const DuoBoardSection: React.FC<DuoBoard> = ({ title, rows }) => (
+    <Surface className="overflow-hidden reveal">
+      <div className="relative px-5 sm:px-7 py-5 border-b border-white/10">
+        <div className="absolute inset-0 opacity-60 bg-[radial-gradient(circle_at_20%_20%,rgba(56,189,248,0.18),transparent_45%),radial-gradient(circle_at_70%_10%,rgba(217,70,239,0.18),transparent_40%),radial-gradient(circle_at_60%_80%,rgba(167,139,250,0.18),transparent_45%)]" />
+        <div className="relative flex items-center justify-between gap-4">
+          <h2 className="text-lg sm:text-2xl font-extrabold tracking-tight text-white">
             {title}
           </h2>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
-            {rows.map((r, idx) => (
-              <React.Fragment key={idx}>
-                {/* Left item */}
-                <div className="py-3 border-b border-white/20">
-                  <div className="flex items-baseline justify-between gap-4">
-                    <p className="font-medium text-[15px] sm:text-base">{r.lLabel}</p>
-                    {/* Giá đã nhân 2.5× */}
-                    <p className="font-extrabold tabular-nums text-right whitespace-nowrap">{r.lPrice}</p>
-                  </div>
-                </div>
-
-                {/* Right item */}
-                <div className="py-3 border-b border-white/20 md:pl-8">
-                  {r.rLabel ? (
-                    <div className="flex items-baseline justify-between gap-4">
-                      <p className="font-medium text-[15px] sm:text-base">{r.rLabel}</p>
-                      <p className="font-extrabold tabular-nums text-right whitespace-nowrap">{r.rPrice ?? "—"}</p>
-                    </div>
-                  ) : (
-                    <div className="opacity-70 text-sm">—</div>
-                  )}
-                </div>
-              </React.Fragment>
-            ))}
-          </div>
+          <span className="text-xs font-semibold text-white/60 ring-1 ring-white/10 rounded-full px-2.5 py-1">
+            Giá hiển thị đã ×{CODE_FACTOR}
+          </span>
         </div>
-      </section>
-    );
-  };
+      </div>
+
+      <div className="p-4 sm:p-6 md:p-7">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10">
+          {rows.map((r, idx) => (
+            <React.Fragment key={idx}>
+              <div className="py-3 border-b border-white/10">
+                <div className="flex items-baseline justify-between gap-4">
+                  <p className="font-medium text-[14px] sm:text-[15px] text-white/90">
+                    {r.lLabel}
+                  </p>
+                  <p className="font-extrabold tabular-nums text-right whitespace-nowrap text-white">
+                    {r.lPrice}
+                  </p>
+                </div>
+              </div>
+
+              <div className="py-3 border-b border-white/10 md:pl-8">
+                {r.rLabel ? (
+                  <div className="flex items-baseline justify-between gap-4">
+                    <p className="font-medium text-[14px] sm:text-[15px] text-white/90">
+                      {r.rLabel}
+                    </p>
+                    <p className="font-extrabold tabular-nums text-right whitespace-nowrap text-white">
+                      {r.rPrice ?? "—"}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="opacity-70 text-sm">—</div>
+                )}
+              </div>
+            </React.Fragment>
+          ))}
+        </div>
+      </div>
+    </Surface>
+  );
 
   // ============== RENDER ==============
   return (
@@ -570,58 +737,125 @@ export default function Social() {
         <title>nguyenlamsocial.ig — Dịch vụ Follow & Bảng giá</title>
       </Head>
 
-      <div className="min-h-screen bg-gradient-to-br from-[#E4ECFF] via-[#F6F4FF] to-[#F9FBFF] dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+      <div className="min-h-screen bg-[#070A12] text-white">
+        {/* ✅ Background: chỉ xoay chậm (không bay) */}
+        <div className="pointer-events-none fixed inset-0 overflow-hidden">
+          <div className="absolute inset-0 opacity-[0.10] bg-[linear-gradient(to_right,rgba(255,255,255,0.12)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.12)_1px,transparent_1px)] bg-[size:28px_28px]" />
+          <div className="absolute inset-0">
+            <div className="absolute -inset-[40%] rounded-full bg-[conic-gradient(from_180deg,rgba(34,211,238,0.22),rgba(217,70,239,0.20),rgba(59,130,246,0.18),rgba(167,139,250,0.20),rgba(34,211,238,0.22))] blur-3xl animate-rotateSlow" />
+          </div>
+          <div className="absolute inset-0 bg-[#070A12]/55" />
+        </div>
+
         {/* Header */}
-        <header className="sticky top-0 z-30 backdrop-blur bg-white/60 dark:bg-slate-900/60 border-b border-black/5 dark:border-white/10">
+        <header className="sticky top-0 z-30 backdrop-blur-xl bg-black/30 border-b border-white/10">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <span className="h-8 w-8 rounded-xl bg-gradient-to-tr from-pink-500 to-purple-600" />
-              <Link href="/" className="font-bold tracking-tight text-slate-900 dark:text-white">LameaLux</Link>
+              <span className="h-9 w-9 rounded-xl bg-gradient-to-tr from-cyan-400 via-fuchsia-500 to-violet-500 shadow-[0_0_30px_rgba(217,70,239,0.18)]" />
+              <div className="leading-tight">
+                <Link href="/" className="font-extrabold tracking-tight text-white">
+                  LameaLux
+                </Link>
+                <div className="text-[11px] font-medium text-white/55">
+                  Global pricing • Warranty • Support
+                </div>
+              </div>
             </div>
-            <nav className="flex items-center gap-3 text-sm sm:gap-4 sm:text-base font-medium text-slate-700 dark:text-slate-200">
-              <Link href="/" className="hover:underline">Deals</Link>
-              <Link href="/social" className="underline font-semibold">Tăng follow</Link>
+
+            <nav className="flex items-center gap-3 text-sm sm:gap-4 sm:text-base font-semibold text-white/80">
+              <Link href="/" className="hover:text-white transition">
+                Deals
+              </Link>
+              <Link href="/social" className="text-white underline underline-offset-4">
+                Tăng follow
+              </Link>
+              <a
+                href="tel:0909172556"
+                className="hidden sm:inline-flex items-center rounded-xl bg-white/10 hover:bg-white/15 ring-1 ring-white/15 px-3 py-1.5 text-sm font-bold transition"
+              >
+                0909 172 556
+              </a>
             </nav>
           </div>
         </header>
 
-        <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
-          <h1 className="text-center text-3xl sm:text-5xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-pink-500 to-blue-600">
-            Bảng giá dịch vụ 💬
-          </h1>
-          <p className="mt-2 text-center text-slate-600 dark:text-slate-300 text-sm sm:text-base">
-            Tự tin gần 10 năm trong lĩnh vực tăng tương tác mạng xã hội <br />
-            Zalo/Call/Sms: 0909 172 556
-          </p>
+        <main className="relative max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
+          {/* Hero */}
+          <Surface className="overflow-hidden reveal">
+            <div className="relative p-6 sm:p-10">
+              <div className="relative">
+                <h1 className="text-center text-3xl sm:text-5xl font-extrabold tracking-tight">
+                  <span className="bg-clip-text text-transparent bg-[linear-gradient(90deg,rgba(34,211,238,1),rgba(217,70,239,1),rgba(167,139,250,1),rgba(34,211,238,1))] bg-[length:200%_100%] animate-gradientX">
+                    Bảng giá dịch vụ 💬
+                  </span>
+                </h1>
 
-          <div className="mt-4 flex items-center justify-center gap-2">
-            <Link
-              href="/social/demo"
-              className="inline-flex items-center rounded-xl bg-slate-900 text-white dark:bg-white dark:text-slate-900 px-3 py-1.5 text-sm font-semibold hover:opacity-90 transition"
-            >
-              Demo hoạt động follow →
-            </Link>
-          </div>
+                <p className="mt-3 text-center text-white/70 text-sm sm:text-base">
+                  Tự tin gần 10 năm trong lĩnh vực tăng tương tác mạng xã hội <br />
+                  Zalo/Call/Sms: 0909 172 556
+                </p>
 
-          {/* ===== 3 bảng IG/TikTok/FB — nằm ĐẦU trang, theme IG ===== */}
-          <div className="mt-10 flex flex-col gap-8 sm:gap-10">
+                <div className="mt-6 flex items-center justify-center gap-2">
+                  <Link
+                    href="/social/demo"
+                    className="relative inline-flex items-center rounded-2xl px-4 py-2.5 text-sm font-semibold
+                               bg-white/10 hover:bg-white/15 ring-1 ring-white/15 transition overflow-hidden"
+                  >
+                    <span className="relative z-10">Demo hoạt động follow →</span>
+                    <span className="pointer-events-none absolute inset-0 opacity-0 hover:opacity-100 transition-opacity bg-[linear-gradient(110deg,transparent,rgba(255,255,255,0.20),transparent)] animate-shimmer" />
+                  </Link>
+
+                  <a
+                    href="tel:0909172556"
+                    className="hidden sm:inline-flex items-center rounded-2xl px-4 py-2.5 text-sm font-semibold
+                               bg-white/10 hover:bg-white/15 ring-1 ring-white/15 transition"
+                  >
+                    Gọi ngay
+                  </a>
+                </div>
+              </div>
+            </div>
+          </Surface>
+
+          {/* ✅ Platforms stacked dọc: IG -> FB -> TikTok */}
+          <div className="mt-10 space-y-10">
             {platforms.map((pf) => (
-              <Card key={pf.name} pf={pf} />
+              <Card key={pf.key} pf={pf} />
             ))}
           </div>
 
-          {/* ===== 3 bảng sau (Dame / Unlock / Tích Xanh) — giá đã ×2.5 ===== */}
+          {/* 3 bảng sau */}
           <div className="mt-10 space-y-8">
             <DuoBoardSection {...boardDameAccount} />
             <DuoBoardSection {...boardUnlock} />
             <DuoBoardSection {...boardTick} />
           </div>
+
           <section id="advice" className="mt-24" />
           <QuickAdviceButton />
-          <footer className="py-10 text-center text-xs text-gray-600 dark:text-slate-300">
+
+          <footer className="py-10 text-center text-xs text-white/55">
             © {new Date().getFullYear()} nguyenlamsocial.ig — Follow Service
           </footer>
         </main>
+
+        {/* Mobile sticky CTA */}
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 sm:hidden">
+          <div className="rounded-2xl bg-black/40 backdrop-blur-xl ring-1 ring-white/12 px-3 py-2 flex items-center gap-2">
+            <Link
+              href="/social/demo"
+              className="rounded-xl bg-white/10 hover:bg-white/15 ring-1 ring-white/15 px-3 py-2 text-xs font-semibold transition"
+            >
+              Demo →
+            </Link>
+            <a
+              href="tel:0909172556"
+              className="rounded-xl bg-white/10 hover:bg-white/15 ring-1 ring-white/15 px-3 py-2 text-xs font-semibold transition"
+            >
+              Gọi ngay
+            </a>
+          </div>
+        </div>
       </div>
 
       {/* Modal nhập link */}
@@ -630,7 +864,6 @@ export default function Social() {
           open={showModal}
           onClose={() => setShowModal(false)}
           onConfirm={handleConfirmLink}
-          // 👇👇 Thêm 2 props gợi ý link (nếu LinkModal chưa có, thêm vào file component của bé)
           placeholder={pendingItem?.placeholder}
           helperText={pendingItem?.helper}
         />
@@ -654,7 +887,40 @@ export default function Social() {
         />
       )}
 
-      
+      {/* Global CSS for animations */}
+      <style jsx global>{`
+        @keyframes gradientX {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+        .animate-gradientX { animation: gradientX 6s ease-in-out infinite; }
+
+        @keyframes shimmer {
+          0% { transform: translateX(-120%); }
+          100% { transform: translateX(120%); }
+        }
+        .animate-shimmer { animation: shimmer 1.6s ease-in-out infinite; }
+
+        /* chỉ xoay chậm */
+        @keyframes rotateSlow {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+        .animate-rotateSlow { animation: rotateSlow 38s linear infinite; }
+
+        @keyframes borderSpinSlow {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+        .animate-borderSpinSlow { animation: borderSpinSlow 16s linear infinite; }
+
+        @keyframes fadeUp {
+          0% { opacity: 0; transform: translate3d(0, 10px, 0); }
+          100% { opacity: 1; transform: translate3d(0, 0, 0); }
+        }
+        .reveal { animation: fadeUp 700ms ease-out both; }
+      `}</style>
     </>
   );
 }
