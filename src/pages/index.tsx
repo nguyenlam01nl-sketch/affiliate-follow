@@ -1,17 +1,16 @@
 // src/pages/social.tsx
 import Head from "next/head";
 import Link from "next/link";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import LinkModal from "@/components/LinkModal";
 import BankQRModal from "@/components/BankQRModal";
 import QuickAdviceButton from "@/components/QuickAdviceButton";
 
-type Row = { label: string; value?: string; g7?: string; g30?: string };
+type Row = { label: string; value?: string; g30?: string };
 type SectionCommon = { title: string };
-type SectionFollowVN = SectionCommon & { kind: "follow_vn"; items: Row[] };
-type SectionFollowGL = SectionCommon & { kind: "follow_global"; items: Row[] };
+type SectionFollow = SectionCommon & { kind: "follow"; items: Row[] };
 type SectionSimple = SectionCommon & { kind: "simple"; items: Row[] };
-type Section = SectionFollowVN | SectionFollowGL | SectionSimple;
+type Section = SectionFollow | SectionSimple;
 
 type Platform = {
   key: "instagram" | "tiktok" | "facebook";
@@ -20,11 +19,15 @@ type Platform = {
   desc?: string;
 };
 
-// ========= Helpers (bảng giá ×2.5) =========
+type NeedType = "follow" | "like" | "view" | "comment";
+
+const cn = (...s: Array<string | undefined | false | null>) =>
+  s.filter(Boolean).join(" ");
+
 function formatVnd(n: number) {
   return n.toLocaleString("vi-VN").replace(/,/g, ".") + "đ";
 }
-/** Nhân chuỗi giá (kể cả khoảng giá a – b). Nếu không có số (VD: "Thương Lượng") thì giữ nguyên. */
+
 function multiplyPriceString(input: string, factor = 2.5): string {
   if (!input) return input;
 
@@ -40,16 +43,14 @@ function multiplyPriceString(input: string, factor = 2.5): string {
   }
 
   const [a, b] = input.split(sep);
-  const x = clean(a),
-    y = clean(b);
+  const x = clean(a);
+  const y = clean(b);
   if (!x || !y) return input;
+
   return `${formatVnd(Math.round(x * factor))} ${sep} ${formatVnd(
     Math.round(y * factor)
   )}`;
 }
-
-// ========= Link hints =========
-type NeedType = "follow" | "like" | "view" | "comment";
 
 function getLinkHint(platform: Platform["key"], need: NeedType) {
   switch (platform) {
@@ -71,6 +72,7 @@ function getLinkHint(platform: Platform["key"], need: NeedType) {
         placeholder: "https://www.instagram.com/p/POST_ID/",
         helper: "Bài viết IG: /p/POST_ID • Reel: /reel/REEL_ID",
       };
+
     case "facebook":
       if (need === "follow") {
         return {
@@ -91,6 +93,7 @@ function getLinkHint(platform: Platform["key"], need: NeedType) {
         helper:
           "Bài viết: /posts/POST_ID • Reel: https://www.facebook.com/reel/REEL_ID",
       };
+
     case "tiktok":
       if (need === "follow") {
         return {
@@ -107,41 +110,45 @@ function getLinkHint(platform: Platform["key"], need: NeedType) {
 }
 
 function inferNeedType(sec: Section, label: string): NeedType {
-  if (sec.kind === "follow_vn" || sec.kind === "follow_global") return "follow";
+  if (sec.kind === "follow") return "follow";
   const lower = label.toLowerCase();
   if (lower.includes("comment")) return "comment";
   if (lower.includes("view")) return "view";
   return "like";
 }
 
-// ===========================
-// UI helpers (Global, clean)
-// ===========================
-const cn = (...s: Array<string | undefined | false | null>) =>
-  s.filter(Boolean).join(" ");
-
 type Accent = "ig" | "tt" | "fb";
+
 const ACCENTS: Record<
   Accent,
-  { grad: string; ring: string; glow: string; badge: string }
+  {
+    chip: string;
+    glow: string;
+    border: string;
+    soft: string;
+    icon: string;
+  }
 > = {
   ig: {
-    grad: "from-pink-500 via-fuchsia-500 to-violet-500",
-    ring: "ring-fuchsia-500/25",
-    glow: "shadow-[0_0_40px_rgba(217,70,239,0.18)]",
-    badge: "bg-fuchsia-500/10 ring-fuchsia-500/20 text-fuchsia-200",
+    chip: "from-pink-500 via-fuchsia-500 to-violet-500",
+    glow: "shadow-[0_16px_50px_rgba(217,70,239,0.18)]",
+    border: "border-fuchsia-400/20",
+    soft: "bg-[radial-gradient(circle_at_top_left,rgba(236,72,153,0.25),transparent_35%),radial-gradient(circle_at_bottom_right,rgba(139,92,246,0.20),transparent_35%)]",
+    icon: "📸",
   },
   tt: {
-    grad: "from-cyan-400 via-sky-500 to-violet-500",
-    ring: "ring-cyan-400/25",
-    glow: "shadow-[0_0_40px_rgba(34,211,238,0.16)]",
-    badge: "bg-cyan-400/10 ring-cyan-400/20 text-cyan-100",
+    chip: "from-cyan-400 via-sky-500 to-violet-500",
+    glow: "shadow-[0_16px_50px_rgba(34,211,238,0.16)]",
+    border: "border-cyan-300/20",
+    soft: "bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.22),transparent_35%),radial-gradient(circle_at_bottom_right,rgba(99,102,241,0.18),transparent_35%)]",
+    icon: "🎵",
   },
   fb: {
-    grad: "from-blue-500 via-sky-500 to-indigo-500",
-    ring: "ring-blue-500/25",
-    glow: "shadow-[0_0_40px_rgba(59,130,246,0.16)]",
-    badge: "bg-blue-500/10 ring-blue-500/20 text-blue-100",
+    chip: "from-blue-500 via-sky-500 to-indigo-500",
+    glow: "shadow-[0_16px_50px_rgba(59,130,246,0.16)]",
+    border: "border-blue-300/20",
+    soft: "bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.22),transparent_35%),radial-gradient(circle_at_bottom_right,rgba(99,102,241,0.18),transparent_35%)]",
+    icon: "📘",
   },
 };
 
@@ -151,7 +158,7 @@ function platformAccent(key: Platform["key"]): Accent {
   return "fb";
 }
 
-const Surface = ({
+const IOSGlass = ({
   children,
   className,
 }: {
@@ -160,8 +167,8 @@ const Surface = ({
 }) => (
   <div
     className={cn(
-      "rounded-3xl bg-white/[0.06] ring-1 ring-white/10 backdrop-blur-xl",
-      "shadow-[0_25px_70px_rgba(0,0,0,0.35)]",
+      "rounded-[28px] border border-white/10 bg-white/[0.06] backdrop-blur-2xl",
+      "shadow-[0_20px_80px_rgba(0,0,0,0.32)]",
       className
     )}
   >
@@ -169,28 +176,40 @@ const Surface = ({
   </div>
 );
 
-const AnimatedBorder = ({
-  accent,
-  children,
-  className,
-}: {
-  accent: Accent;
-  children: React.ReactNode;
-  className?: string;
-}) => (
-  <div className={cn("relative rounded-3xl p-[1px]", className)}>
-    <div
-      className={cn(
-        "absolute inset-0 rounded-3xl opacity-90 animate-borderSpinSlow",
-        `bg-gradient-to-r ${ACCENTS[accent].grad}`
-      )}
-      style={{ filter: "blur(18px)" }}
-    />
-    <div className="relative rounded-3xl bg-[#0B1020]/85 ring-1 ring-white/10">
-      {children}
-    </div>
-  </div>
+const PricePill = ({ children }: { children: React.ReactNode }) => (
+  <span className="inline-flex items-center rounded-full border border-white/10 bg-white/8 px-3 py-1.5 text-[12px] sm:text-[13px] font-semibold text-white/90 tabular-nums">
+    {children}
+  </span>
 );
+
+// const ActionBtn: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement>> = (
+//   props
+// ) => (
+//   <button
+//     {...props}
+//     className={cn(
+//       "inline-flex items-center justify-center rounded-full px-3.5 py-2",
+//       "text-[12px] font-semibold text-white",
+//       "border border-white/10 bg-white/10 hover:bg-white/15",
+//       "transition active:scale-[0.98] disabled:opacity-60",
+//       props.className
+//     )}
+//   >
+//     Order
+//   </button>
+// );
+
+type DuoRow = {
+  lLabel: string;
+  lPrice: string;
+  rLabel?: string;
+  rPrice?: string;
+};
+
+type DuoBoard = {
+  title: string;
+  rows: DuoRow[];
+};
 
 export default function Social() {
   const [loading, setLoading] = useState(false);
@@ -202,7 +221,10 @@ export default function Social() {
     helper?: string;
   } | null>(null);
   const [showQR, setShowQR] = useState(false);
-  const [currentOrder, setCurrentOrder] = useState<{ id: string; amount: number } | null>(null);
+  const [currentOrder, setCurrentOrder] = useState<{
+    id: string;
+    amount: number;
+  } | null>(null);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => setMounted(true), []);
@@ -255,29 +277,30 @@ export default function Social() {
   };
 
   // ===========================
-  // 🟣 DATA — 3 bảng đầu (IG / TikTok / FB) ✅ GIỮ NGUYÊN CHỮ
+  // DATA
+  // Instagram đã bỏ hẳn cột BH 7 ngày
   // ===========================
   const instagram: Platform = {
     key: "instagram",
-    name: "Instagram 📸",
-    desc: "Follow / Likes / Views — BH 7 ngày hoặc 1 tháng.",
+    name: "Instagram",
+    desc: "Follow / Likes / Views — giao diện gọn kiểu iOS.",
     sections: [
       {
         title: "Follow 🇻🇳",
-        kind: "follow_vn",
+        kind: "follow",
         items: [
-          { label: "500 Follow", g7: "50.000 đ", g30: "70.000 đ" },
-          { label: "1.000 Follow", g7: "100.000 đ", g30: "140.000 đ" },
-          { label: "2.000 Follow", g7: "190.000 đ", g30: "275.000 đ" },
-          { label: "3.000 Follow", g7: "280.000 đ", g30: "410.000 đ" },
-          { label: "4.000 Follow", g7: "370.000 đ", g30: "540.000 đ" },
-          { label: "5.000 Follow", g7: "460.000 đ", g30: "660.000 đ" },
-          { label: "10.000 Follow", g7: "900.000 đ", g30: "1.250.000 đ" },
+          { label: "500 Follow", g30: "70.000 đ" },
+          { label: "1.000 Follow", g30: "140.000 đ" },
+          { label: "2.000 Follow", g30: "275.000 đ" },
+          { label: "3.000 Follow", g30: "410.000 đ" },
+          { label: "4.000 Follow", g30: "540.000 đ" },
+          { label: "5.000 Follow", g30: "660.000 đ" },
+          { label: "10.000 Follow", g30: "1.250.000 đ" },
         ],
       },
       {
         title: "Follow 🌍",
-        kind: "follow_global",
+        kind: "follow",
         items: [
           { label: "500 Follow", g30: "100.000 đ" },
           { label: "1.000 Follow", g30: "190.000 đ" },
@@ -311,59 +334,22 @@ export default function Social() {
     ],
   };
 
-  const tiktok: Platform = {
-    key: "tiktok",
-    name: "TikTok 🎵",
-    desc: "Follow / Likes / Views — tách rõ, dễ chọn.",
-    sections: [
-      {
-        title: "Follow",
-        kind: "follow_global",
-        items: [
-          { label: "100 Follow", value: "15.000 đ" },
-          { label: "500 Follow", value: "60.000 đ" },
-          { label: "1.000 Follow (Live)", value: "110.000 đ" },
-          { label: "2.000 Follow", value: "210.000 đ" },
-          { label: "3.000 Follow", value: "300.000 đ" },
-          { label: "4.000 Follow", value: "390.000 đ" },
-          { label: "5.000 Follow", value: "470.000 đ" },
-          { label: "10.000 Follow", value: "800.000 đ" },
-        ],
-      },
-      {
-        title: "Views",
-        kind: "simple",
-        items: [
-          { label: "1.000 View video", value: "10.000 đ" },
-          { label: "10.000 View video", value: "70.000 đ" },
-        ],
-      },
-      {
-        title: "Likes",
-        kind: "simple",
-        items: [
-          { label: "100 Like", value: "10.000 đ" },
-          { label: "1.000 Like", value: "80.000 đ" },
-        ],
-      },
-    ],
-  };
-
   const facebook: Platform = {
     key: "facebook",
-    name: "Facebook 📘",
+    name: "Facebook",
+    desc: "Follow / Likes / Views — card gọn, dễ bấm.",
     sections: [
       {
         title: "Follow",
-        kind: "follow_global",
+        kind: "follow",
         items: [
-          { label: "500 Follow", value: "50.000 đ" },
-          { label: "1.000 Follow", value: "100.000 đ" },
-          { label: "2.000 Follow", value: "190.000 đ" },
-          { label: "3.000 Follow", value: "280.000 đ" },
-          { label: "4.000 Follow", value: "370.000 đ" },
-          { label: "5.000 Follow", value: "450.000 đ" },
-          { label: "10.000 Follow", value: "850.000 đ" },
+          { label: "500 Follow", g30: "50.000 đ" },
+          { label: "1.000 Follow", g30: "100.000 đ" },
+          { label: "2.000 Follow", g30: "190.000 đ" },
+          { label: "3.000 Follow", g30: "280.000 đ" },
+          { label: "4.000 Follow", g30: "370.000 đ" },
+          { label: "5.000 Follow", g30: "450.000 đ" },
+          { label: "10.000 Follow", g30: "850.000 đ" },
         ],
       },
       {
@@ -389,269 +375,307 @@ export default function Social() {
     ],
   };
 
-  // ✅ Order theo bé Kim muốn: IG -> FB -> TikTok
+  const tiktok: Platform = {
+    key: "tiktok",
+    name: "TikTok",
+    desc: "Follow / Likes / Views — gọn nhẹ cho mobile.",
+    sections: [
+      {
+        title: "Follow",
+        kind: "follow",
+        items: [
+          { label: "100 Follow", g30: "15.000 đ" },
+          { label: "500 Follow", g30: "60.000 đ" },
+          { label: "1.000 Follow (Live)", g30: "110.000 đ" },
+          { label: "2.000 Follow", g30: "210.000 đ" },
+          { label: "3.000 Follow", g30: "300.000 đ" },
+          { label: "4.000 Follow", g30: "390.000 đ" },
+          { label: "5.000 Follow", g30: "470.000 đ" },
+          { label: "10.000 Follow", g30: "800.000 đ" },
+        ],
+      },
+      {
+        title: "Views",
+        kind: "simple",
+        items: [
+          { label: "1.000 View video", value: "10.000 đ" },
+          { label: "10.000 View video", value: "70.000 đ" },
+        ],
+      },
+      {
+        title: "Likes",
+        kind: "simple",
+        items: [
+          { label: "100 Like", value: "10.000 đ" },
+          { label: "1.000 Like", value: "80.000 đ" },
+        ],
+      },
+    ],
+  };
+
   const platforms: Platform[] = [instagram, facebook, tiktok];
 
-  // ===========================
-  // Buttons
-  // ===========================
-  const ActionBtn: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement>> = (props) => (
-    <button
-      {...props}
-      className={cn(
-        "relative inline-flex items-center justify-center whitespace-nowrap rounded-xl",
-        "px-3 py-1.5 text-[12px] sm:text-[13px] font-semibold",
-        "bg-white/10 hover:bg-white/15 ring-1 ring-white/15",
-        "transition-all duration-200 active:scale-[0.98] disabled:opacity-60",
-        "overflow-hidden",
-        props.className
-      )}
-    >
-      <span className="relative z-10">Order</span>
-      <span className="pointer-events-none absolute inset-0 opacity-0 hover:opacity-100 transition-opacity duration-200 bg-[linear-gradient(110deg,transparent,rgba(255,255,255,0.18),transparent)] animate-shimmer" />
-    </button>
-  );
-
-  // ===========================
-  // Platform Card (full-width, stacked)
-  // ===========================
-  const Card: React.FC<{ pf: Platform }> = ({ pf }) => {
+  const PlatformCard: React.FC<{ pf: Platform }> = ({ pf }) => {
     const accent = platformAccent(pf.key);
-    return (
-      <AnimatedBorder accent={accent} className={cn(ACCENTS[accent].glow, "reveal")}>
-        <div className="rounded-3xl overflow-hidden">
-          {/* header */}
-          <div className="relative px-5 sm:px-7 py-6 border-b border-white/10">
-            <div className={cn("absolute inset-0 opacity-70 bg-gradient-to-r", ACCENTS[accent].grad)} />
-            <div className="absolute inset-0 bg-[#0B1020]/70" />
-            <div className="relative flex items-start justify-between gap-4">
-              <div>
-                <h2 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-white">
-                  {pf.name}
-                </h2>
-                {pf.desc && <p className="mt-1 text-sm sm:text-base text-white/70">{pf.desc}</p>}
-              </div>
 
-              <div className="text-right">
-                <div className="text-xs sm:text-sm font-semibold text-white/70">Pricing</div>
-                <div className="text-xs sm:text-sm text-white/50">
+    return (
+      <IOSGlass
+        className={cn(
+          "overflow-hidden border",
+          ACCENTS[accent].border,
+          ACCENTS[accent].glow
+        )}
+      >
+        <div className={cn("relative", ACCENTS[accent].soft)}>
+          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02))]" />
+          <div className="relative p-4 sm:p-6">
+            <div className="flex items-center justify-between gap-3">              <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <div
+                  className={cn(
+                    "inline-flex h-10 w-10 items-center justify-center rounded-2xl text-lg",
+                    "bg-gradient-to-br text-white shadow-lg",
+                    ACCENTS[accent].chip
+                  )}
+                >
+                  {ACCENTS[accent].icon}
+                </div>
+
+                <div>
+                  <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
+                    {pf.name}
+                  </h2>
+                  {pf.desc && (
+                    <p className="mt-0.5 text-xs sm:text-sm text-white/65">
+                      {pf.desc}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+              <div className="shrink-0 text-right">
+                <div className="text-[11px] uppercase tracking-[0.18em] text-white/45">
+                  Pricing
+                </div>
+                <div className="mt-1 text-[12px] text-white/65">
                   {mounted ? new Date().toLocaleDateString("vi-VN") : ""}
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* sections */}
-          <div className="p-4 sm:p-6 md:p-7">
-            {/* ✅ giống kiểu của bé: trong 1 platform, các bảng con nằm ngang (2 cột) */}
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
               {pf.sections.map((sec, i) => (
-                <article
+                <IOSGlass
                   key={sec.title + i}
-                  className={cn(
-                    "rounded-2xl overflow-hidden bg-white/[0.04] ring-1 ring-white/10",
-                    "hover:bg-white/[0.06] transition-colors"
-                  )}
+                  className="overflow-hidden border border-white/8 bg-white/[0.05]"
                 >
-                  <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between">
-                    <h3 className="font-bold text-sm sm:text-base tracking-tight text-white/90">
+                  <div className="flex items-center justify-between border-b border-white/8 px-4 py-3">
+                    <h3 className="text-sm sm:text-[15px] font-semibold text-white/92">
                       {sec.title}
                     </h3>
+
                     <span
                       className={cn(
-                        "text-[11px] font-semibold rounded-full px-2.5 py-1 ring-1",
-                        ACCENTS[accent].badge
+                        "rounded-full bg-gradient-to-r px-2.5 py-1 text-[10px] font-bold text-white",
+                        ACCENTS[accent].chip
                       )}
                     >
                       {pf.key.toUpperCase()}
                     </span>
                   </div>
 
-                  <div className="overflow-x-auto">
-                    {/* FOLLOW VN */}
-                    {sec.kind === "follow_vn" && (
-                      <table className="w-full text-[13px] sm:text-sm tabular-nums border-collapse min-w-[460px]">
-                        <thead className="bg-white/5 font-semibold text-white/75 sticky top-0">
-                          <tr>
-                            <th className="py-2.5 px-3 text-left">Follow</th>
-                            <th className="py-2.5 px-3 text-right">BH 7 ngày</th>
-                            <th className="py-2.5 px-3 text-right">BH 1 tháng</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {sec.items.map((r, idx) => (
-                            <tr
-                              key={r.label}
-                              className={cn(
-                                "border-b last:border-0 border-white/10",
-                                idx % 2 ? "bg-white/[0.02]" : "",
-                                "hover:bg-white/[0.05] transition-colors"
-                              )}
-                            >
-                              <td className="py-2.5 px-3 align-middle font-medium text-white/90">
-                                {r.label}
-                              </td>
-                              <td className="py-2.5 px-3 text-right align-middle">
-                                <div className="flex items-center justify-end gap-2">
-                                  <span className="whitespace-nowrap text-white/80">{r.g7 ?? "–"}</span>
-                                  {/* {r.g7 && (
-                                    <ActionBtn
-                                      onClick={() => handleBuy(pf.key, sec, r.label + " BH7", r.g7!)}
-                                      disabled={loading}
-                                    />
-                                  )} */}
-                                </div>
-                              </td>
-                              <td className="py-2.5 px-3 text-right align-middle">
-                                <div className="flex items-center justify-end gap-2">
-                                  <span className="whitespace-nowrap text-white/80">{r.g30 ?? "–"}</span>
-                                  {/* {r.g30 && (
-                                    <ActionBtn
-                                      onClick={() => handleBuy(pf.key, sec, r.label + " BH30", r.g30!)}
-                                      disabled={loading}
-                                    />
-                                  )} */}
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    )}
+                  <div className="p-3">
+                    <div className="space-y-2">
+                      {sec.items.map((r) => {
+                        const price = sec.kind === "follow" ? r.g30 ?? "—" : r.value ?? "—";
 
-                    {/* FOLLOW GLOBAL */}
-                    {sec.kind === "follow_global" && (
-                      <table className="w-full text-[13px] sm:text-sm tabular-nums border-collapse min-w-[420px]">
-                        <thead className="bg-white/5 font-semibold text-white/75 sticky top-0">
-                          <tr>
-                            <th className="py-2.5 px-3 text-left">Follow</th>
-                            <th className="py-2.5 px-3 text-right">Bảo hành 1 tháng</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {sec.items.map((r, idx) => (
-                            <tr
-                              key={r.label}
-                              className={cn(
-                                "border-b last:border-0 border-white/10",
-                                idx % 2 ? "bg-white/[0.02]" : "",
-                                "hover:bg-white/[0.05] transition-colors"
-                              )}
-                            >
-                              <td className="py-2.5 px-3 align-middle font-medium text-white/90">
-                                {r.label}
-                              </td>
-                              <td className="py-2.5 px-3 text-right align-middle">
-                                <div className="flex items-center justify-end gap-2">
-                                  <span className="whitespace-nowrap text-white/80">
-                                    {r.g30 ?? r.value ?? "–"}
-                                  </span>
-                                  {/* {(r.g30 || r.value) && (
-                                    <ActionBtn
-                                      onClick={() => handleBuy(pf.key, sec, r.label, r.g30 ?? r.value ?? "")}
-                                      disabled={loading}
-                                    />
-                                  )} */}
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    )}
+                        return (
+                          <div
+                            key={r.label}
+                            className={cn(
+                              "rounded-2xl border border-white/8 bg-white/[0.04]",
+                              "px-3 py-3 sm:px-4"
+                            )}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <p className="text-sm sm:text-[15px] font-medium leading-5 text-white/92">
+                                  {r.label}
+                                </p>
+                                <p className="mt-1 text-[11px] sm:text-xs text-white/45">
+                                  {sec.kind === "follow"
+                                    ? "Bảo hành 1 tháng"
+                                    : "Dịch vụ"}
+                                </p>
+                              </div>
 
-                    {/* SIMPLE */}
-                    {sec.kind === "simple" && (
-                      <table className="w-full text-[13px] sm:text-sm tabular-nums border-collapse min-w-[420px]">
-                        <thead className="bg-white/5 font-semibold text-white/75 sticky top-0">
-                          <tr>
-                            <th className="py-2.5 px-3 text-left">Dịch vụ</th>
-                            <th className="py-2.5 px-3 text-right">Giá</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {sec.items.map((r, idx) => (
-                            <tr
-                              key={r.label}
-                              className={cn(
-                                "border-b last:border-0 border-white/10",
-                                idx % 2 ? "bg-white/[0.02]" : "",
-                                "hover:bg-white/[0.05] transition-colors"
-                              )}
-                            >
-                              <td className="py-2.5 px-3 align-middle font-medium text-white/90">
-                                {r.label}
-                              </td>
-                              <td className="py-2.5 px-3 text-right align-middle">
-                                <div className="flex items-center justify-end gap-2">
-                                  <span className="whitespace-nowrap text-white/80">{r.value ?? "–"}</span>
-                                  {/* {r.value && (
-                                    <ActionBtn
-                                      onClick={() => handleBuy(pf.key, sec, r.label, r.value!)}
-                                      disabled={loading}
-                                    />
-                                  )} */}
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    )}
+                              <div className="shrink-0 flex items-center gap-2 self-center">
+                                <PricePill>{price}</PricePill>
+
+                                {/* {price !== "—" && (
+                                  <ActionBtn
+                                    onClick={() => handleBuy(pf.key, sec, r.label, price)}
+                                    disabled={loading}
+                                  />
+                                )} */}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                </article>
+                </IOSGlass>
               ))}
             </div>
           </div>
         </div>
-      </AnimatedBorder>
+      </IOSGlass>
     );
   };
 
   // ===========================
-  // 🟣 3 bảng sau (giá ×2.5) — giữ logic + giá
+  // 3 bảng sau
   // ===========================
-  type DuoRow = { lLabel: string; lPrice: string; rLabel?: string; rPrice?: string };
-  type DuoBoard = { title: string; rows: DuoRow[] };
-
   const CODE_FACTOR = 2.5;
   const mult = (s: string) => multiplyPriceString(s, CODE_FACTOR);
 
   const rawBoardDameAccount: DuoBoard = {
     title: "DAME ACCOUNT",
     rows: [
-      { lLabel: "Dịch vụ tài khoản Facebook (gói cơ bản)", lPrice: "650.000đ", rLabel: "Dịch vụ tài khoản Facebook (gói nâng cao)", rPrice: "1.500.000đ" },
-      { lLabel: "Dịch vụ tài khoản Facebook (case hạn chế/giới hạn)", lPrice: "1.500.000đ", rLabel: "Dịch vụ tài khoản Facebook (case thiếu ảnh/thiết lập)", rPrice: "1.300.000đ" },
-      { lLabel: "Dịch vụ Fanpage Facebook (setup/transfer theo quy trình)", lPrice: "3.000.000đ – 10.000.000đ", rLabel: "Dịch vụ Group Facebook (setup theo quy trình)", rPrice: "3.000.000đ – 10.000.000đ" },
-      { lLabel: "Dịch vụ tài khoản TikTok (setup/optim)", lPrice: "6.000.000đ – 30.000.000đ", rLabel: "Dịch vụ video TikTok (tối ưu đăng tải)", rPrice: "3.000.000đ – 6.000.000đ" },
-      { lLabel: "Dịch vụ tài khoản Instagram (setup/optim)", lPrice: "1.500.000đ – 4.000.000đ", rLabel: "Dịch vụ tài khoản Youtube (setup/optim)", rPrice: "6.000.000đ – 30.000.000đ" },
-      { lLabel: "Dịch vụ video Youtube (tối ưu đăng tải)", lPrice: "2.000.000đ – 5.000.000đ", rLabel: "Dịch vụ tài khoản Threads (setup/optim)", rPrice: "2.500.000đ – 8.000.000đ" },
+      {
+        lLabel: "Dịch vụ tài khoản Facebook (gói cơ bản)",
+        lPrice: "650.000đ",
+        rLabel: "Dịch vụ tài khoản Facebook (gói nâng cao)",
+        rPrice: "1.500.000đ",
+      },
+      {
+        lLabel: "Dịch vụ tài khoản Facebook (case hạn chế/giới hạn)",
+        lPrice: "1.500.000đ",
+        rLabel: "Dịch vụ tài khoản Facebook (case thiếu ảnh/thiết lập)",
+        rPrice: "1.300.000đ",
+      },
+      {
+        lLabel: "Dịch vụ Fanpage Facebook (setup/transfer theo quy trình)",
+        lPrice: "3.000.000đ – 10.000.000đ",
+        rLabel: "Dịch vụ Group Facebook (setup theo quy trình)",
+        rPrice: "3.000.000đ – 10.000.000đ",
+      },
+      {
+        lLabel: "Dịch vụ tài khoản TikTok (setup/optim)",
+        lPrice: "6.000.000đ – 30.000.000đ",
+        rLabel: "Dịch vụ video TikTok (tối ưu đăng tải)",
+        rPrice: "3.000.000đ – 6.000.000đ",
+      },
+      {
+        lLabel: "Dịch vụ tài khoản Instagram (setup/optim)",
+        lPrice: "1.500.000đ – 4.000.000đ",
+        rLabel: "Dịch vụ tài khoản Youtube (setup/optim)",
+        rPrice: "6.000.000đ – 30.000.000đ",
+      },
+      {
+        lLabel: "Dịch vụ video Youtube (tối ưu đăng tải)",
+        lPrice: "2.000.000đ – 5.000.000đ",
+        rLabel: "Dịch vụ tài khoản Threads (setup/optim)",
+        rPrice: "2.500.000đ – 8.000.000đ",
+      },
     ],
   };
 
   const rawBoardUnlock: DuoBoard = {
     title: "UNLOCK & KHÁNG NGHỊ",
     rows: [
-      { lLabel: "Hỗ trợ kháng nghị Facebook (case review)", lPrice: "650.000đ", rLabel: "Hỗ trợ kháng nghị Facebook (nâng cao)", rPrice: "2.500.000đ" },
-      { lLabel: "Hỗ trợ kháng nghị (có email)", lPrice: "650.000đ", rLabel: "Hỗ trợ kháng nghị (không email)", rPrice: "650.000đ" },
-      { lLabel: "Hỗ trợ kháng nghị (vòng 2+)", lPrice: "2.500.000đ", rLabel: "Thiết lập bảo mật tài khoản (2FA/Hardening)", rPrice: "650.000đ" },
-      { lLabel: "Hỗ trợ case phức tạp (identity/FAQ)", lPrice: "1.900.000đ", rLabel: "Hỗ trợ case phức tạp (nâng cao)", rPrice: "7.000.000đ – 15.000.000đ" },
-      { lLabel: "Hỗ trợ xử lý vi phạm/policy", lPrice: "1.000.000đ – 4.000.000đ", rLabel: "Hỗ trợ khi nghi ngờ bị chiếm quyền (hướng dẫn bảo vệ)", rPrice: "850.000đ" },
-      { lLabel: "Gói bảo vệ tài khoản (audit + hardening)", lPrice: "2.000.000đ – 7.000.000đ", rLabel: "Hỗ trợ kháng nghị TikTok (theo quy trình)", rPrice: "3.000.000đ – 9.000.000đ" },
-      { lLabel: "Hỗ trợ vấn đề bản quyền (case theo quy trình)", lPrice: "40.000.000đ – 90.000.000đ", rLabel: "Hỗ trợ case liên quan giới hạn độ tuổi", rPrice: "2.000.000đ – 5.000.000đ" },
-      { lLabel: "Hỗ trợ khiếu nại video TikTok", lPrice: "2.000.000đ – 4.000.000đ", rLabel: "Hỗ trợ khiếu nại live TikTok", rPrice: "2.000.000đ – 4.000.000đ" },
-      { lLabel: "Gói hỗ trợ theo case", lPrice: "Thương Lượng", rLabel: "Hỗ trợ kháng nghị Instagram (theo quy trình)", rPrice: "2.000.000đ – 8.500.000đ" },
-      { lLabel: "Hỗ trợ kháng nghị Youtube (theo quy trình)", lPrice: "3.000.000đ – 5.000.000đ", rLabel: "Hỗ trợ kháng nghị bài viết Instagram", rPrice: "900.000đ – 3.000.000đ" },
+      {
+        lLabel: "Hỗ trợ kháng nghị Facebook (case review)",
+        lPrice: "650.000đ",
+        rLabel: "Hỗ trợ kháng nghị Facebook (nâng cao)",
+        rPrice: "2.500.000đ",
+      },
+      {
+        lLabel: "Hỗ trợ kháng nghị (có email)",
+        lPrice: "650.000đ",
+        rLabel: "Hỗ trợ kháng nghị (không email)",
+        rPrice: "650.000đ",
+      },
+      {
+        lLabel: "Hỗ trợ kháng nghị (vòng 2+)",
+        lPrice: "2.500.000đ",
+        rLabel: "Thiết lập bảo mật tài khoản (2FA/Hardening)",
+        rPrice: "650.000đ",
+      },
+      {
+        lLabel: "Hỗ trợ case phức tạp (identity/FAQ)",
+        lPrice: "1.900.000đ",
+        rLabel: "Hỗ trợ case phức tạp (nâng cao)",
+        rPrice: "7.000.000đ – 15.000.000đ",
+      },
+      {
+        lLabel: "Hỗ trợ xử lý vi phạm/policy",
+        lPrice: "1.000.000đ – 4.000.000đ",
+        rLabel: "Hỗ trợ khi nghi ngờ bị chiếm quyền (hướng dẫn bảo vệ)",
+        rPrice: "850.000đ",
+      },
+      {
+        lLabel: "Gói bảo vệ tài khoản (audit + hardening)",
+        lPrice: "2.000.000đ – 7.000.000đ",
+        rLabel: "Hỗ trợ kháng nghị TikTok (theo quy trình)",
+        rPrice: "3.000.000đ – 9.000.000đ",
+      },
+      {
+        lLabel: "Hỗ trợ vấn đề bản quyền (case theo quy trình)",
+        lPrice: "40.000.000đ – 90.000.000đ",
+        rLabel: "Hỗ trợ case liên quan giới hạn độ tuổi",
+        rPrice: "2.000.000đ – 5.000.000đ",
+      },
+      {
+        lLabel: "Hỗ trợ khiếu nại video TikTok",
+        lPrice: "2.000.000đ – 4.000.000đ",
+        rLabel: "Hỗ trợ khiếu nại live TikTok",
+        rPrice: "2.000.000đ – 4.000.000đ",
+      },
+      {
+        lLabel: "Gói hỗ trợ theo case",
+        lPrice: "Thương Lượng",
+        rLabel: "Hỗ trợ kháng nghị Instagram (theo quy trình)",
+        rPrice: "2.000.000đ – 8.500.000đ",
+      },
+      {
+        lLabel: "Hỗ trợ kháng nghị Youtube (theo quy trình)",
+        lPrice: "3.000.000đ – 5.000.000đ",
+        rLabel: "Hỗ trợ kháng nghị bài viết Instagram",
+        rPrice: "900.000đ – 3.000.000đ",
+      },
     ],
   };
 
   const rawBoardTick: DuoBoard = {
     title: "DỊCH VỤ TÍCH XANH",
     rows: [
-      { lLabel: "Dịch vụ Verified Facebook (KBH)", lPrice: "999.000đ", rLabel: "Dịch vụ Verified Facebook (BH)", rPrice: "1.850.000đ" },
-      { lLabel: "Dịch vụ Verified Facebook (chính chủ, KBH)", lPrice: "2.600.000đ", rLabel: "Dịch vụ Verified Facebook (chính chủ, BH)", rPrice: "5.500.000đ" },
-      { lLabel: "Dịch vụ Verified Instagram (KBH)", lPrice: "1.300.000đ", rLabel: "Dịch vụ Verified Instagram (BH)", rPrice: "2.850.000đ" },
-      { lLabel: "Dịch vụ Verified Instagram (chính chủ, KBH)", lPrice: "3.600.000đ", rLabel: "Dịch vụ Verified Instagram (chính chủ, BH)", rPrice: "6.500.000đ" },
+      {
+        lLabel: "Dịch vụ Verified Facebook (KBH)",
+        lPrice: "999.000đ",
+        rLabel: "Dịch vụ Verified Facebook (BH)",
+        rPrice: "1.850.000đ",
+      },
+      {
+        lLabel: "Dịch vụ Verified Facebook (chính chủ, KBH)",
+        lPrice: "2.600.000đ",
+        rLabel: "Dịch vụ Verified Facebook (chính chủ, BH)",
+        rPrice: "5.500.000đ",
+      },
+      {
+        lLabel: "Dịch vụ Verified Instagram (KBH)",
+        lPrice: "1.300.000đ",
+        rLabel: "Dịch vụ Verified Instagram (BH)",
+        rPrice: "2.850.000đ",
+      },
+      {
+        lLabel: "Dịch vụ Verified Instagram (chính chủ, KBH)",
+        lPrice: "3.600.000đ",
+        rLabel: "Dịch vụ Verified Instagram (chính chủ, BH)",
+        rPrice: "6.500.000đ",
+      },
     ],
   };
 
@@ -663,6 +687,7 @@ export default function Social() {
       rPrice: r.rPrice ? mult(r.rPrice) : undefined,
     })),
   };
+
   const boardUnlock: DuoBoard = {
     title: rawBoardUnlock.title,
     rows: rawBoardUnlock.rows.map((r) => ({
@@ -671,6 +696,7 @@ export default function Social() {
       rPrice: r.rPrice ? mult(r.rPrice) : undefined,
     })),
   };
+
   const boardTick: DuoBoard = {
     title: rawBoardTick.title,
     rows: rawBoardTick.rows.map((r) => ({
@@ -681,98 +707,97 @@ export default function Social() {
   };
 
   const DuoBoardSection: React.FC<DuoBoard> = ({ title, rows }) => (
-    <Surface className="overflow-hidden reveal">
-      <div className="relative px-5 sm:px-7 py-5 border-b border-white/10">
-        <div className="absolute inset-0 opacity-60 bg-[radial-gradient(circle_at_20%_20%,rgba(56,189,248,0.18),transparent_45%),radial-gradient(circle_at_70%_10%,rgba(217,70,239,0.18),transparent_40%),radial-gradient(circle_at_60%_80%,rgba(167,139,250,0.18),transparent_45%)]" />
-        <div className="relative flex items-center justify-between gap-4">
-          <h2 className="text-lg sm:text-2xl font-extrabold tracking-tight text-white">
+    <IOSGlass className="overflow-hidden border border-white/10">
+      <div className="border-b border-white/8 px-4 py-4 sm:px-6">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-lg sm:text-2xl font-bold tracking-tight text-white">
             {title}
           </h2>
-          <span className="text-xs font-semibold text-white/60 ring-1 ring-white/10 rounded-full px-2.5 py-1">
-            Giá hiển thị đã ×{CODE_FACTOR}
+          <span className="rounded-full border border-white/10 bg-white/6 px-3 py-1 text-[11px] text-white/60">
+            Giá ×{CODE_FACTOR}
           </span>
         </div>
       </div>
 
-      <div className="p-4 sm:p-6 md:p-7">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10">
+      <div className="p-3 sm:p-5">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           {rows.map((r, idx) => (
             <React.Fragment key={idx}>
-              <div className="py-3 border-b border-white/10">
-                <div className="flex items-baseline justify-between gap-4">
-                  <p className="font-medium text-[14px] sm:text-[15px] text-white/90">
-                    {r.lLabel}
-                  </p>
-                  <p className="font-extrabold tabular-nums text-right whitespace-nowrap text-white">
-                    {r.lPrice}
-                  </p>
+              <div className="rounded-2xl border border-white/8 bg-white/[0.04] p-4">
+                <p className="text-sm sm:text-[15px] font-medium text-white/90">
+                  {r.lLabel}
+                </p>
+                <div className="mt-3">
+                  <PricePill>{r.lPrice}</PricePill>
                 </div>
               </div>
 
-              <div className="py-3 border-b border-white/10 md:pl-8">
+              <div className="rounded-2xl border border-white/8 bg-white/[0.04] p-4">
                 {r.rLabel ? (
-                  <div className="flex items-baseline justify-between gap-4">
-                    <p className="font-medium text-[14px] sm:text-[15px] text-white/90">
+                  <>
+                    <p className="text-sm sm:text-[15px] font-medium text-white/90">
                       {r.rLabel}
                     </p>
-                    <p className="font-extrabold tabular-nums text-right whitespace-nowrap text-white">
-                      {r.rPrice ?? "—"}
-                    </p>
-                  </div>
+                    <div className="mt-3">
+                      <PricePill>{r.rPrice ?? "—"}</PricePill>
+                    </div>
+                  </>
                 ) : (
-                  <div className="opacity-70 text-sm">—</div>
+                  <div className="text-white/40">—</div>
                 )}
               </div>
             </React.Fragment>
           ))}
         </div>
       </div>
-    </Surface>
+    </IOSGlass>
   );
 
-  // ============== RENDER ==============
   return (
     <>
       <Head>
-        <title>            hackfollowuytin.inst
- — Dịch vụ Follow & Bảng giá</title>
+        <title>hackfollowuytin.inst — Dịch vụ Follow & Bảng giá</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
       </Head>
 
-      <div className="min-h-screen bg-[#070A12] text-white">
-        {/* ✅ Background: chỉ xoay chậm (không bay) */}
+      <div className="min-h-screen overflow-x-hidden bg-[#070B14] text-white">
+        {/* background kiểu iOS */}
         <div className="pointer-events-none fixed inset-0 overflow-hidden">
-          <div className="absolute inset-0 opacity-[0.10] bg-[linear-gradient(to_right,rgba(255,255,255,0.12)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.12)_1px,transparent_1px)] bg-[size:28px_28px]" />
-          <div className="absolute inset-0">
-            <div className="absolute -inset-[40%] rounded-full bg-[conic-gradient(from_180deg,rgba(34,211,238,0.22),rgba(217,70,239,0.20),rgba(59,130,246,0.18),rgba(167,139,250,0.20),rgba(34,211,238,0.22))] blur-3xl animate-rotateSlow" />
-          </div>
-          <div className="absolute inset-0 bg-[#070A12]/55" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(236,72,153,0.16),transparent_24%),radial-gradient(circle_at_top_right,rgba(56,189,248,0.14),transparent_26%),radial-gradient(circle_at_bottom,rgba(99,102,241,0.14),transparent_26%)]" />
+          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0))]" />
+          <div className="absolute inset-0 opacity-[0.04] bg-[linear-gradient(to_right,rgba(255,255,255,0.18)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.18)_1px,transparent_1px)] bg-[size:22px_22px]" />
+          <div className="absolute inset-0 bg-[#070B14]/55" />
         </div>
 
         {/* Header */}
-        <header className="sticky top-0 z-30 backdrop-blur-xl bg-black/30 border-b border-white/10">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
+        <header className="sticky top-0 z-30 border-b border-white/8 bg-black/20 backdrop-blur-2xl">
+          <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6">
             <div className="flex items-center gap-3">
-              <span className="h-9 w-9 rounded-xl bg-gradient-to-tr from-cyan-400 via-fuchsia-500 to-violet-500 shadow-[0_0_30px_rgba(217,70,239,0.18)]" />
+              <div className="h-10 w-10 rounded-[16px] bg-gradient-to-br from-cyan-400 via-fuchsia-500 to-violet-500 shadow-[0_12px_30px_rgba(217,70,239,0.25)]" />
+
               <div className="leading-tight">
-                <Link href="/" className="font-extrabold tracking-tight text-white">
+                <Link href="/" className="text-sm sm:text-base font-bold tracking-tight text-white">
                   LameaLux
                 </Link>
-                <div className="text-[11px] font-medium text-white/55">
-                  Global pricing • Warranty • Support
+                <div className="text-[11px] text-white/50">
+                  Global pricing • Support
                 </div>
               </div>
             </div>
 
-            <nav className="flex items-center gap-3 text-sm sm:gap-4 sm:text-base font-semibold text-white/80">
-              <Link href="/" className="hover:text-white transition">
+            <nav className="flex items-center gap-2 sm:gap-3 text-xs sm:text-sm font-medium text-white/75">
+              <Link href="/" className="rounded-full px-2.5 py-1.5 hover:bg-white/8 hover:text-white transition">
                 Deals
               </Link>
-              <Link href="/social" className="text-white underline underline-offset-4">
+              <Link
+                href="/social"
+                className="rounded-full bg-white/10 px-3 py-1.5 text-white"
+              >
                 Tăng follow
               </Link>
               <a
                 href="tel:0909172556"
-                className="hidden sm:inline-flex items-center rounded-xl bg-white/10 hover:bg-white/15 ring-1 ring-white/15 px-3 py-1.5 text-sm font-bold transition"
+                className="hidden sm:inline-flex rounded-full border border-white/10 bg-white/10 px-3 py-1.5 font-semibold text-white transition hover:bg-white/15"
               >
                 0909 172 556
               </a>
@@ -780,79 +805,77 @@ export default function Social() {
           </div>
         </header>
 
-        <main className="relative max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
+        <main className="relative mx-auto max-w-6xl px-3 py-6 sm:px-6 sm:py-8">
           {/* Hero */}
-          <Surface className="overflow-hidden reveal">
-            <div className="relative p-6 sm:p-10">
+          <IOSGlass className="overflow-hidden border border-white/10">
+            <div className="relative p-5 sm:p-8">
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_40%)]" />
               <div className="relative">
-                <h1 className="text-center text-3xl sm:text-5xl font-extrabold tracking-tight">
-                  <span className="bg-clip-text text-transparent bg-[linear-gradient(90deg,rgba(34,211,238,1),rgba(217,70,239,1),rgba(167,139,250,1),rgba(34,211,238,1))] bg-[length:200%_100%] animate-gradientX">
+                <h1 className="text-center text-2xl sm:text-5xl font-extrabold tracking-tight">
+                  <span className="bg-gradient-to-r from-cyan-300 via-fuchsia-400 to-violet-300 bg-clip-text text-transparent">
                     Bảng giá dịch vụ 💬
                   </span>
                 </h1>
 
-                <p className="mt-3 text-center text-white/70 text-sm sm:text-base">
-                  Tự tin gần 10 năm trong lĩnh vực tăng tương tác mạng xã hội <br />
-                  Zalo/Call/Sms: 0909 172 556
+                <p className="mt-3 text-center text-sm sm:text-base leading-6 text-white/68">
+                  Tự tin gần 10 năm trong lĩnh vực tăng tương tác mạng xã hội
+                  <br className="hidden sm:block" />
+                  Zalo / Call / SMS: 0909 172 556
                 </p>
 
-                <div className="mt-6 flex items-center justify-center gap-2">
+                <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
                   <Link
                     href="/social/demo"
-                    className="relative inline-flex items-center rounded-2xl px-4 py-2.5 text-sm font-semibold
-                               bg-white/10 hover:bg-white/15 ring-1 ring-white/15 transition overflow-hidden"
+                    className="inline-flex rounded-full border border-white/10 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/15"
                   >
-                    <span className="relative z-10">Demo hoạt động follow →</span>
-                    <span className="pointer-events-none absolute inset-0 opacity-0 hover:opacity-100 transition-opacity bg-[linear-gradient(110deg,transparent,rgba(255,255,255,0.20),transparent)] animate-shimmer" />
+                    Demo hoạt động follow →
                   </Link>
 
                   <a
                     href="tel:0909172556"
-                    className="hidden sm:inline-flex items-center rounded-2xl px-4 py-2.5 text-sm font-semibold
-                               bg-white/10 hover:bg-white/15 ring-1 ring-white/15 transition"
+                    className="inline-flex rounded-full border border-white/10 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/15"
                   >
                     Gọi ngay
                   </a>
                 </div>
               </div>
             </div>
-          </Surface>
+          </IOSGlass>
 
-          {/* ✅ Platforms stacked dọc: IG -> FB -> TikTok */}
-          <div className="mt-10 space-y-10">
+          {/* Platforms */}
+          <div className="mt-6 space-y-5 sm:mt-8 sm:space-y-6">
             {platforms.map((pf) => (
-              <Card key={pf.key} pf={pf} />
+              <PlatformCard key={pf.key} pf={pf} />
             ))}
           </div>
 
-          {/* 3 bảng sau */}
-          <div className="mt-10 space-y-8">
+          {/* Other sections */}
+          <div className="mt-6 space-y-5 sm:mt-8 sm:space-y-6">
             <DuoBoardSection {...boardDameAccount} />
             <DuoBoardSection {...boardUnlock} />
             <DuoBoardSection {...boardTick} />
           </div>
 
-          <section id="advice" className="mt-24" />
+          <section id="advice" className="mt-20" />
           <QuickAdviceButton />
 
-          <footer className="py-10 text-center text-xs text-white/55">
-            © {new Date().getFullYear()}             hackfollowuytin.inst
- — Follow Service
+          <footer className="py-10 text-center text-xs text-white/45">
+            © {new Date().getFullYear()} hackfollowuytin.inst — Follow Service
           </footer>
         </main>
 
         {/* Mobile sticky CTA */}
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 sm:hidden">
-          <div className="rounded-2xl bg-black/40 backdrop-blur-xl ring-1 ring-white/12 px-3 py-2 flex items-center gap-2">
+        <div className="fixed bottom-4 left-1/2 z-40 w-[calc(100%-24px)] max-w-[360px] -translate-x-1/2 sm:hidden">
+          <div className="flex items-center justify-center gap-2 rounded-[22px] border border-white/10 bg-black/30 p-2 backdrop-blur-2xl">
             <Link
               href="/social/demo"
-              className="rounded-xl bg-white/10 hover:bg-white/15 ring-1 ring-white/15 px-3 py-2 text-xs font-semibold transition"
+              className="flex-1 rounded-full border border-white/10 bg-white/10 px-3 py-2.5 text-center text-xs font-semibold text-white"
             >
               Demo →
             </Link>
             <a
               href="tel:0909172556"
-              className="rounded-xl bg-white/10 hover:bg-white/15 ring-1 ring-white/15 px-3 py-2 text-xs font-semibold transition"
+              className="flex-1 rounded-full border border-white/10 bg-white/10 px-3 py-2.5 text-center text-xs font-semibold text-white"
             >
               Gọi ngay
             </a>
@@ -860,7 +883,6 @@ export default function Social() {
         </div>
       </div>
 
-      {/* Modal nhập link */}
       {showModal && (
         <LinkModal
           open={showModal}
@@ -871,7 +893,6 @@ export default function Social() {
         />
       )}
 
-      {/* Modal VietQR */}
       {showQR && currentOrder && (
         <BankQRModal
           open={showQR}
@@ -883,46 +904,11 @@ export default function Social() {
               method: "PATCH",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ status: "paid_pending_verify" }),
-            }).catch(() => {});
+            }).catch(() => { });
             setShowQR(false);
           }}
         />
       )}
-
-      {/* Global CSS for animations */}
-      <style jsx global>{`
-        @keyframes gradientX {
-          0% { background-position: 0% 50%; }
-          50% { background-position: 100% 50%; }
-          100% { background-position: 0% 50%; }
-        }
-        .animate-gradientX { animation: gradientX 6s ease-in-out infinite; }
-
-        @keyframes shimmer {
-          0% { transform: translateX(-120%); }
-          100% { transform: translateX(120%); }
-        }
-        .animate-shimmer { animation: shimmer 1.6s ease-in-out infinite; }
-
-        /* chỉ xoay chậm */
-        @keyframes rotateSlow {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-        .animate-rotateSlow { animation: rotateSlow 38s linear infinite; }
-
-        @keyframes borderSpinSlow {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-        .animate-borderSpinSlow { animation: borderSpinSlow 16s linear infinite; }
-
-        @keyframes fadeUp {
-          0% { opacity: 0; transform: translate3d(0, 10px, 0); }
-          100% { opacity: 1; transform: translate3d(0, 0, 0); }
-        }
-        .reveal { animation: fadeUp 700ms ease-out both; }
-      `}</style>
     </>
   );
 }
