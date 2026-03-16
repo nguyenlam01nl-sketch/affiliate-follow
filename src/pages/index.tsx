@@ -713,9 +713,9 @@ export default function Social() {
           <h2 className="text-lg sm:text-2xl font-bold tracking-tight text-white">
             {title}
           </h2>
-          <span className="rounded-full border border-white/10 bg-white/6 px-3 py-1 text-[11px] text-white/60">
+          {/* <span className="rounded-full border border-white/10 bg-white/6 px-3 py-1 text-[11px] text-white/60">
             Giá ×{CODE_FACTOR}
-          </span>
+          </span> */}
         </div>
       </div>
 
