@@ -824,12 +824,12 @@ export default function Social() {
                 </p>
 
                 <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
-                  <Link
+                  {/* <Link
                     href="/social/demo"
                     className="inline-flex rounded-full border border-white/10 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/15"
                   >
                     Demo hoạt động follow →
-                  </Link>
+                  </Link> */}
 
                   <a
                     href="tel:0909172556"
