@@ -262,7 +262,7 @@ export default function Social() {
   const instagram: Platform = {
     key: "instagram",
     name: "Instagram",
-    desc: "Follow / Likes / Views — giao diện gọn kiểu iOS.",
+    desc: "Follow / Likes / Views",
     sections: [
       {
         title: "Follow 🇻🇳",
@@ -316,7 +316,7 @@ export default function Social() {
   const facebook: Platform = {
     key: "facebook",
     name: "Facebook",
-    desc: "Follow / Likes / Views — card gọn, dễ bấm.",
+    desc: "Follow / Likes / Views",
     sections: [
       {
         title: "Follow",
@@ -357,7 +357,7 @@ export default function Social() {
   const tiktok: Platform = {
     key: "tiktok",
     name: "TikTok",
-    desc: "Follow / Likes / Views — gọn nhẹ cho mobile.",
+    desc: "Follow / Likes / Views",
     sections: [
       {
         title: "Follow",
