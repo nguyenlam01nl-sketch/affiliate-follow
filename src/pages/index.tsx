@@ -4,7 +4,7 @@ import Link from "next/link";
 import React, { useEffect, useState } from "react";
 import LinkModal from "@/components/LinkModal";
 import BankQRModal from "@/components/BankQRModal";
-import QuickAdviceButton from "@/components/QuickAdviceButton";
+// import QuickAdviceButton from "@/components/QuickAdviceButton";
 
 type Row = { label: string; value?: string; g30?: string };
 type SectionCommon = { title: string };
@@ -659,29 +659,14 @@ export default function Social() {
           </div>
 
           <section id="advice" className="mt-20" />
-          <QuickAdviceButton />
+          {/* <QuickAdviceButton /> */}
 
           <footer className="py-10 text-center text-xs text-white/45">
-            © {new Date().getFullYear()} hackfollowuytin.inst — Follow Service
+            © {new Date().getFullYear()} tangfollow.insne - tangfollowuytin.insne
           </footer>
         </main>
 
-        <div className="fixed bottom-4 left-1/2 z-40 w-[calc(100%-24px)] max-w-[360px] -translate-x-1/2 sm:hidden">
-          <div className="flex items-center justify-center gap-2 rounded-[22px] border border-white/10 bg-black/30 p-2 backdrop-blur-2xl">
-            {/* <Link
-              href="/social/demo"
-              className="flex-1 rounded-full border border-white/10 bg-white/10 px-3 py-2.5 text-center text-xs font-semibold text-white"
-            >
-              Demo →
-            </Link> */}
-            <a
-              href="tel:0909172556"
-              className="flex-1 rounded-full border border-white/10 bg-white/10 px-3 py-2.5 text-center text-xs font-semibold text-white"
-            >
-              Gọi ngay
-            </a>
-          </div>
-        </div>
+      
       </div>
 
       {showModal && (
